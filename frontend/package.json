@@ -1,0 +1,14 @@
+{
+  "name": "@hoopstars/frontend",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "vite --configLoader native --host 127.0.0.1",
+    "dev": "vite --configLoader native --host 127.0.0.1",
+    "build": "vite build --configLoader native",
+    "preview": "vite preview --configLoader native --host 127.0.0.1",
+    "test": "node --check src/app.js && node --test test/*.test.js"
+  },
+  "devDependencies": {"vite": "^7.1.0"}
+}

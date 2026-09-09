@@ -1,0 +1,11 @@
+node_modules/
+.npm-cache/
+dist/
+.env
+.env.production
+backend/data/*.json
+backend/data/*.tmp
+backend/data/*.sqlite*
+backend/data/*.db*
+coverage/
+hoopstars-deploy.tar.gz

@@ -1,0 +1,11 @@
+.git
+.gitignore
+.npm-cache
+node_modules
+**/node_modules
+**/dist
+**/.env
+.env.production
+backend/data
+coverage
+*.log
