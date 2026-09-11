@@ -654,7 +654,7 @@ function studentTable(limit = false, onlyPresent = false) {
                   .join("");
                 const num = (s.id.replace(/\D/g, "") || "07").slice(-2);
                 return `
-              <tr>
+              <tr class="student-row-link" data-student-profile="${esc(s.id)}" tabindex="0">
                 <td>
                   <div class="student-info-cell">
                     <div class="jersey-avatar" style="background: ${getJerseyColor(s.id)};">
@@ -679,8 +679,8 @@ function studentTable(limit = false, onlyPresent = false) {
                   ${a ? `<b style="color:var(--text-title)">${esc(a.in)}</b>` + (a.out ? ` → <b style="color:var(--text-title)">${esc(a.out)}</b>` : "") : "—"}
                 </td>
                 <td style="text-align: right;">
-                  <button class="btn secondary" style="padding: 7px 14px; font-size: 11.5px;" data-student="${esc(s.id)}" aria-label="Xem chi tiết ${esc(s.name)}">
-                    Chi tiết ${icon("arrow")}
+                  <button class="btn secondary" style="padding: 7px 14px; font-size: 11.5px;" data-student-profile="${esc(s.id)}" aria-label="Mở hồ sơ đầy đủ ${esc(s.name)}">
+                    Mở hồ sơ ${icon("arrow")}
                   </button>
                 </td>
               </tr>
@@ -1105,7 +1105,7 @@ function modal(title, body, onSubmit) {
 function studentForm(id) {
   let s = data.students.find((st) => st.id === id);
   modal(
-    s ? "Hồ sơ học sinh" : "Thêm học sinh mới",
+    s ? "Chỉnh sửa thông tin học sinh" : "Thêm học sinh mới",
     `
       <div class="form-grid">
         <label>
@@ -1413,8 +1413,16 @@ function bind() {
 
 function bindStudents() {
   document
-    .querySelectorAll("[data-student]")
-    .forEach((b) => (b.onclick = () => studentProfile(b.dataset.student)));
+    .querySelectorAll("[data-student-profile]")
+    .forEach((element) => {
+      element.onclick = (event) => {
+        event.stopPropagation();
+        studentProfile(element.dataset.studentProfile);
+      };
+      element.onkeydown = (event) => {
+        if (event.key === "Enter") studentProfile(element.dataset.studentProfile);
+      };
+    });
 }
 
 async function studentProfile(id, month = dateKey().slice(0, 7)) {
