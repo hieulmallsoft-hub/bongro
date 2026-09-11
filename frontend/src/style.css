@@ -2192,8 +2192,9 @@ footer {
 .fee-status.paid { color: #087747; background: #e8f8ef; }
 .fee-status.pending { color: #a05b00; background: #fff4dc; }
 .fee-open { width: 34px; height: 34px; border: 0; border-radius: 10px; color: var(--orange-primary); background: #fff0e7; font-size: 20px; cursor: pointer; }
+.fee-detail-backdrop[hidden],.fee-detail-drawer[hidden] { display: none !important; }
 .fee-detail-backdrop { position: fixed; inset: 0; z-index: 120; background: rgba(7,15,27,.55); backdrop-filter: blur(3px); }
-.fee-detail-drawer { position: fixed; z-index: 121; top: 0; right: 0; width: min(820px,94vw); height: 100vh; padding: 30px; overflow-y: auto; background: #f7f9fc; box-shadow: -20px 0 60px rgba(4,12,24,.25); animation: fee-drawer-in .25s ease-out; }
+.fee-detail-drawer { display: block; position: fixed; z-index: 121; inset: 0 0 0 auto; width: min(820px,94vw); height: 100vh; padding: 30px; overflow-y: auto; background: #f7f9fc; border: 0; box-shadow: -20px 0 60px rgba(4,12,24,.25); animation: fee-drawer-in .25s ease-out; }
 .fee-close { position: sticky; z-index: 2; top: 0; float: right; width: 42px; height: 42px; border: 0; border-radius: 12px; color: #42526a; background: #fff; box-shadow: var(--shadow-sm); font-size: 26px; cursor: pointer; }
 .fee-student-head { display: flex; align-items: center; gap: 15px; margin: 5px 55px 24px 0; }
 .fee-student-head h2 { margin: 3px 0; font-size: 28px; }
