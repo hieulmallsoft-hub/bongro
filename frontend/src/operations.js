@@ -24,6 +24,10 @@ const names = {
   submitted: "Chờ duyệt",
 };
 let selectedAttendanceLessonId = null;
+let operationsFlash = null;
+const flashMessage = (message, type = "success") => {
+  operationsFlash = { message, type };
+};
 const input = (name, label, type = "text", value = "", required = true) =>
   `<label>${label}<input class="field" name="${name}" type="${type}" value="${esc(value)}" ${required ? "required" : ""}></label>`;
 const select = (name, label, items) =>
@@ -428,10 +432,18 @@ export async function operationsScreen(
             esc(JSON.stringify(a.detail)),
           ]),
         );
-    app.innerHTML = `<div class="ops-page"><header class="ops-header"><div><span class="ops-kicker">HOOPSTARS CONTROL CENTER</span><h1>Quản lý học viện</h1><p>Xin chào, <strong>${esc(user.name)}</strong> · ${admin ? "Quản trị viên" : "Huấn luyện viên"}</p></div>${admin ? '<button class="btn secondary" id="back-dashboard">← Về tổng quan</button>' : ""}</header><nav class="ops-tabs">${tabs.map(([id, title]) => `<button class="ops-tab ${tab === id ? "active" : ""}" data-ops-tab="${id}">${title}</button>`).join("")}</nav><main class="ops-content">${content}<p id="ops-message" role="status"></p></main></div>`;
+    const pendingFlash = operationsFlash;
+    operationsFlash = null;
+    app.innerHTML = `<div class="ops-page">${pendingFlash ? `<div class="ops-toast ${pendingFlash.type}" role="status"><span>${pendingFlash.type === "success" ? "✓" : "!"}</span><div><strong>${pendingFlash.type === "success" ? "Đã cập nhật" : "Không thể cập nhật"}</strong><p>${esc(pendingFlash.message)}</p></div><button type="button" aria-label="Đóng">×</button></div>` : ""}<header class="ops-header"><div><span class="ops-kicker">HOOPSTARS CONTROL CENTER</span><h1>Quản lý học viện</h1><p>Xin chào, <strong>${esc(user.name)}</strong> · ${admin ? "Quản trị viên" : "Huấn luyện viên"}</p></div>${admin ? '<button class="btn secondary" id="back-dashboard">← Về tổng quan</button>' : ""}</header><nav class="ops-tabs">${tabs.map(([id, title]) => `<button class="ops-tab ${tab === id ? "active" : ""}" data-ops-tab="${id}">${title}</button>`).join("")}</nav><main class="ops-content">${content}<p id="ops-message" role="status"></p></main></div>`;
+    const toast = document.querySelector(".ops-toast");
+    if (toast) {
+      toast.querySelector("button").onclick = () => toast.remove();
+      setTimeout(() => toast.remove(), 4500);
+    }
     const reload = () => operationsScreen(user, onBack, tab, month);
-    const action = async (path, body) => {
+    const action = async (path, body, successMessage = "Dữ liệu đã được lưu thành công.") => {
       await request(path, { method: "POST", body });
+      flashMessage(successMessage);
       await reload();
     };
     document
@@ -551,10 +563,10 @@ export async function operationsScreen(
             lessonId: button.dataset.lesson,
             studentId: button.dataset.student,
             status: button.dataset.rosterMark,
-          });
+          }, `${studentName(button.dataset.student)}: ${names[button.dataset.rosterMark]} · ${lessonName(Number(button.dataset.lesson))} · ${new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}`);
         } catch (error) {
-          document.getElementById("ops-message").textContent = error.message;
-          button.disabled = false;
+          flashMessage(error.message, "error");
+          await reload();
         }
       };
       document.getElementById("lesson-photo-form").onsubmit = async (event) => {
@@ -592,7 +604,7 @@ export async function operationsScreen(
         lessonId: b.dataset.checkout,
         studentId: b.dataset.student,
         action: "checkout",
-      }),
+      }, `${studentName(b.dataset.student)} đã check-out khỏi ${lessonName(Number(b.dataset.checkout))}.`),
     );
     buttons("[data-toggle-user]", (b) => {
       const u = data.users.find((u) => u.id === Number(b.dataset.toggleUser));

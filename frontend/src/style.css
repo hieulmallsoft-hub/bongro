@@ -2144,6 +2144,14 @@ footer {
 }
 .ops-tab:hover { color: var(--orange-primary); background: #fff5ef; }
 .ops-tab.active { color: #fff; background: linear-gradient(135deg, #ff6b1a, #ea4b00); box-shadow: 0 7px 18px rgba(234,75,0,.24); }
+.ops-toast { position: fixed; z-index: 200; top: 22px; right: 22px; width: min(430px,calc(100vw - 32px)); display: grid; grid-template-columns: 38px 1fr 28px; align-items: center; gap: 12px; padding: 15px; border: 1px solid #b8e8ce; border-radius: 15px; color: #17452f; background: #effcf5; box-shadow: 0 18px 45px rgba(15,31,55,.2); animation: toast-in-right .25s ease-out; }
+.ops-toast > span { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 11px; color: #fff; background: #159b5b; font-size: 20px; font-weight: 900; }
+.ops-toast strong,.ops-toast p { display: block; margin: 0; }
+.ops-toast p { margin-top: 2px; font-size: 12px; }
+.ops-toast button { color: inherit; font-size: 22px; }
+.ops-toast.error { color: #752a27; border-color: #f2bfba; background: #fff2f0; }
+.ops-toast.error > span { background: #dc4c43; }
+@keyframes toast-in-right { from { opacity: 0; transform: translateX(25px); } to { opacity: 1; transform: translateX(0); } }
 
 .ops-content { max-width: 1256px; margin: 0 auto; }
 .ops-content > .card, .ops-content > .table-wrap, .ops-content > form { margin-bottom: 18px; }
