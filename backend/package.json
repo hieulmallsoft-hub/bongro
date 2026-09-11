@@ -7,6 +7,7 @@
     "db:status": "npm run build && node --env-file-if-exists=.env dist/storage/database-cli.js",
     "start": "npm run build && node --env-file-if-exists=.env dist/main.js",
     "dev": "npm run build && concurrently -k \"tsc --watch -p tsconfig.json\" \"node --env-file-if-exists=.env --watch dist/main.js\"",
+    "start:dev": "npm run dev",
     "test": "npm run build && node --env-file-if-exists=.env --test test/*.test.cjs",
     "test:local": "npm run build && node test/run-local-postgres.cjs"
   },
