@@ -35,6 +35,8 @@ export const api = {
       method: id ? "PUT" : "POST",
       body,
     }),
+  deleteStudent: (id) =>
+    request(`/students/${encodeURIComponent(id)}`, { method: "DELETE" }),
   addLesson: (body) => request("/lessons", { method: "POST", body }),
   check: (studentId, out) =>
     request(`/attendance/${out ? "check-out" : "check-in"}`, {

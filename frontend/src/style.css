@@ -1184,6 +1184,8 @@ header {
   color: var(--text-title);
   transform: translateY(-2px);
 }
+.btn.danger { color: #fff; background: linear-gradient(135deg,#e34d45,#ba2929); box-shadow: 0 7px 18px rgba(190,41,41,.2); }
+.btn.danger:hover { transform: translateY(-1px); box-shadow: 0 10px 24px rgba(190,41,41,.3); }
 
 /* ==========================================================================
    LIVE COURT RADAR MONITOR WIDGET (WOW MINI-COURT)

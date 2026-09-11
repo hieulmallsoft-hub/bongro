@@ -61,6 +61,7 @@ test("operations: auth, scoped coaches, fees, leave, reports and complete backup
       "coach scope and admin-only routes enforced on server",
       async () => {
         await call("/students", "GET", undefined, 403, coach);
+        await call("/students/HS004", "DELETE", undefined, 403, coach);
         await call(
           "/ops/payments",
           "POST",

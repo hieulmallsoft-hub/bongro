@@ -28,4 +28,28 @@ export class StudentsService {
       return student;
     });
   }
+  remove(id: string, user: { username: string; role: string }) {
+    if (!/^HS\d{3,10}$/.test(id))
+      throw new NotFoundException("Không tìm thấy học sinh.");
+    return this.storage.withTransaction(async (c) => {
+      if (user.role !== "admin")
+        throw new NotFoundException("Không tìm thấy học sinh.");
+      const student = (await c.query("SELECT name FROM students WHERE id=$1", [id])).rows[0];
+      if (!student) throw new NotFoundException("Không tìm thấy học sinh.");
+      await c.query("DELETE FROM report_deliveries WHERE student_id=$1", [id]);
+      await c.query("DELETE FROM monthly_reports WHERE student_id=$1", [id]);
+      await c.query("DELETE FROM payments WHERE enrollment_id IN (SELECT id FROM enrollments WHERE student_id=$1)", [id]);
+      await c.query("DELETE FROM enrollments WHERE student_id=$1", [id]);
+      await c.query("DELETE FROM leave_requests WHERE student_id=$1", [id]);
+      await c.query("DELETE FROM session_attendance WHERE student_id=$1", [id]);
+      await c.query("DELETE FROM guardians WHERE student_id=$1", [id]);
+      await c.query("DELETE FROM attendance WHERE student_id=$1", [id]);
+      await c.query("DELETE FROM students WHERE id=$1", [id]);
+      await c.query(
+        "INSERT INTO audit_log(actor,action,detail) VALUES($1,'delete_student',$2)",
+        [user.username, JSON.stringify({ id, name: student.name })],
+      );
+      return { success: true };
+    });
+  }
 }

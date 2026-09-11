@@ -16,6 +16,15 @@ test('student updates target the API with encoded ID and JSON payload', async ()
   assert.deepEqual(await api.saveStudent('HS001', { name: 'Minh' }), { id: 'HS001' });
 });
 
+test('student deletion uses the protected delete endpoint', async () => {
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, '/api/students/HS001');
+    assert.equal(options.method, 'DELETE');
+    return new Response(JSON.stringify({ success: true }), { status: 200 });
+  };
+  assert.deepEqual(await api.deleteStudent('HS001'), { success: true });
+});
+
 test('check-in sends only the student ID; server owns the attendance time', async () => {
   globalThis.fetch = async (url, options) => {
     assert.equal(url, '/api/attendance/check-in');

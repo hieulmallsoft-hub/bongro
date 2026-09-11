@@ -147,6 +147,15 @@ test("Nest API: validation, students, scheduling, attendance, backup and persist
         assert.equal((await request("/attendance")).length, 1);
       },
     );
+    await t.test("admin deletes a student and related attendance", async () => {
+      const removable = await request("/students", "POST", {
+        ...student,
+        name: "Học sinh sẽ xóa",
+      }, 201);
+      await request(`/students/${removable.id}`, "DELETE", undefined, 200);
+      assert.equal((await request("/students")).some((s) => s.id === removable.id), false);
+      await request(`/students/${removable.id}`, "DELETE", undefined, 404);
+    });
     await t.test(
       "schedule conflicts are checked for court, class and coach",
       async () => {

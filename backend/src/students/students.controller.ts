@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Put } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Post, Put, Req } from "@nestjs/common";
 import { StudentDto } from "../common/dto";
 import { StudentsService } from "./students.service";
 
@@ -13,5 +13,8 @@ export class StudentsController {
   }
   @Put(":id") update(@Param("id") id: string, @Body() dto: StudentDto) {
     return this.students.update(id, dto);
+  }
+  @Delete(":id") remove(@Param("id") id: string, @Req() req: any) {
+    return this.students.remove(id, req.user);
   }
 }
