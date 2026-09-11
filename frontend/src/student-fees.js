@@ -89,7 +89,7 @@ export function bindFees(data, today) {
     const detail = document.getElementById("fee-detail");
     detail.hidden = false;
     document.getElementById("fee-detail-backdrop").hidden = false;
-    detail.innerHTML = `<button class="fee-close" type="button" aria-label="Đóng">×</button><div class="fee-student-head"><span class="fee-avatar large">${esc(s.name.split(" ").slice(-1)[0].slice(0, 1))}</span><div><span class="ops-kicker">HỒ SƠ HỌC SINH</span><h2>${esc(s.name)}</h2><p>${esc(s.id)} · Lớp ${esc(s.group)}</p></div></div><div class="fee-detail-metrics"><article><span>Phải đóng</span><strong>${money(summary.total)}</strong></article><article><span>Đã đóng</span><strong class="fee-paid">${money(summary.paid)}</strong></article><article><span>Còn thiếu</span><strong class="fee-owed">${money(summary.owed)}</strong></article><article><span>Trạng thái</span><strong>${summary.status}${summary.overdue ? " · Quá hạn" : ""}</strong></article></div><div class="session-summary"><span>Gói <strong>${sessions}</strong> buổi</span><span>Đã học <strong>${attended}</strong></span><span>Nghỉ phép <strong>${excused}</strong></span><span>Không phép <strong>${absent}</strong></span><span>Còn lại <strong>${Math.max(0, sessions - used)}</strong></span></div><h3>Các gói trong kỳ lọc</h3><div class="table-wrap"><table><thead><tr><th>Gói</th><th>Buổi học</th><th>Học phí</th><th>Đã đóng</th><th>Còn thiếu</th><th></th></tr></thead><tbody>${summary.rows.map((e) => `<tr><td><strong>${esc(e.title)}</strong><br><small>${esc(e.starts)} → ${esc(e.ends)}</small></td><td>${e.attended} đã học<br><small>${Math.max(0, e.sessions - e.used)} / ${e.sessions} còn lại</small></td><td>${money(e.fee)}</td><td>${money(e.paid)}</td><td>${money(e.fee - e.paid)}</td><td>${e.fee > e.paid ? `<button class="btn" data-fee-pay="${e.id}">Thu tiền</button>` : "Đã đủ"}</td></tr>`).join("") || '<tr><td colspan="6">Chưa có gói học trong kỳ được chọn.</td></tr>'}</tbody></table></div><h3>Lịch sử đóng tiền</h3><div class="table-wrap"><table><thead><tr><th>Ngày đóng</th><th>Kỳ học phí</th><th>Số tiền</th><th>Biên nhận</th></tr></thead><tbody>${payments.map((p) => `<tr><td>${esc(new Date(p.paid_at).toLocaleString("vi-VN"))}</td><td>${esc(p.title)}<br><small>${esc(p.note)}</small></td><td>${money(p.amount)}</td><td><button class="btn secondary" data-receipt="${p.id}">Xuất PDF</button></td></tr>`).join("") || '<tr><td colspan="4">Chưa có khoản thanh toán trong kỳ lọc.</td></tr>'}</tbody></table></div>`;
+    detail.innerHTML = `<button class="fee-close" type="button" aria-label="Đóng">×</button><div class="fee-student-head"><span class="fee-avatar large">${esc(s.name.split(" ").slice(-1)[0].slice(0, 1))}</span><div><span class="ops-kicker">HỒ SƠ HỌC SINH</span><h2>${esc(s.name)}</h2><p>${esc(s.id)} · Lớp ${esc(s.group)}</p></div></div><div class="fee-detail-metrics"><article><span>Phải đóng</span><strong>${money(summary.total)}</strong></article><article><span>Đã đóng</span><strong class="fee-paid">${money(summary.paid)}</strong></article><article><span>Còn thiếu</span><strong class="fee-owed">${money(summary.owed)}</strong></article><article><span>Trạng thái</span><strong>${summary.status}${summary.overdue ? " · Quá hạn" : ""}</strong></article></div><div class="session-summary"><span>Gói <strong>${sessions}</strong> buổi</span><span>Đã học <strong>${attended}</strong></span><span>Nghỉ phép <strong>${excused}</strong></span><span>Không phép <strong>${absent}</strong></span><span>Còn lại <strong>${Math.max(0, sessions - used)}</strong></span></div><h3>Các gói trong kỳ lọc</h3><div class="table-wrap"><table><thead><tr><th>Gói</th><th>Buổi học</th><th>Học phí</th><th>Đã đóng</th><th>Còn thiếu</th><th></th></tr></thead><tbody>${summary.rows.map((e) => `<tr><td><strong>${esc(e.title)}</strong><br><small>${esc(e.starts)} → ${esc(e.ends)} · ${esc(e.status || "active")}</small></td><td>${e.attended} đã học<br><small>${Math.max(0, e.sessions - e.used)} / ${e.sessions} còn lại</small></td><td>${money(e.fee)}</td><td>${money(e.paid)}</td><td>${money(e.fee - e.paid)}</td><td>${e.fee > e.paid ? `<button class="btn" data-fee-pay="${e.id}">Thu tiền</button>` : "Đã đủ"}</td></tr>`).join("") || '<tr><td colspan="6">Chưa có gói học trong kỳ được chọn.</td></tr>'}</tbody></table></div><h3>Lịch sử đóng tiền</h3><div class="table-wrap"><table><thead><tr><th>Ngày đóng</th><th>Kỳ học phí</th><th>Số tiền</th><th>Biên nhận / xử lý</th></tr></thead><tbody>${payments.map((p) => `<tr><td>${esc(new Date(p.paid_at).toLocaleString("vi-VN"))}</td><td>${esc(p.title)}<br><small>${esc(p.voided_at ? `Đã hủy: ${p.void_reason}` : p.note)}</small></td><td>${p.voided_at ? `<s>${money(p.amount)}</s>` : money(p.amount)}</td><td>${p.voided_at ? "Đã hủy" : `<button class="btn secondary" data-receipt="${p.id}">Xuất PDF</button> <button class="btn secondary" data-void-payment="${p.id}">Hủy giao dịch</button>`}</td></tr>`).join("") || '<tr><td colspan="4">Chưa có khoản thanh toán trong kỳ lọc.</td></tr>'}</tbody></table></div>`;
     const close = () => { detail.hidden = true; document.getElementById("fee-detail-backdrop").hidden = true; activeStudent = ""; };
     detail.querySelector(".fee-close").onclick = close;
     document.getElementById("fee-detail-backdrop").onclick = close;
@@ -135,6 +135,24 @@ export function bindFees(data, today) {
           popup.document.close();
         }),
     );
+    detail.querySelectorAll("[data-void-payment]").forEach((button) => {
+      button.onclick = async () => {
+        const reason = prompt("Lý do hủy giao dịch (bắt buộc):");
+        if (!reason?.trim()) return;
+        if (!confirm("Hủy giao dịch này và cập nhật lại công nợ?")) return;
+        button.disabled = true;
+        try {
+          await request("/ops/payments/void", {
+            method: "POST",
+            body: { id: Number(button.dataset.voidPayment), reason: reason.trim() },
+          });
+          window.location.reload();
+        } catch (error) {
+          alert(error.message);
+          button.disabled = false;
+        }
+      };
+    });
   }
   search.oninput = render;
   filter.onchange = render;

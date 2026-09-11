@@ -95,7 +95,7 @@ export class OperationsController {
           u.role === "admin"
             ? (
                 await c.query(
-                  "SELECT p.id,p.enrollment_id,p.amount,p.paid_at,p.note,e.student_id,e.title FROM payments p JOIN enrollments e ON e.id=p.enrollment_id ORDER BY p.paid_at DESC,p.id DESC",
+                   "SELECT p.id,p.enrollment_id,p.amount,p.paid_at,p.note,p.voided_at,p.void_reason,e.student_id,e.title FROM payments p JOIN enrollments e ON e.id=p.enrollment_id ORDER BY p.paid_at DESC,p.id DESC",
                 )
               ).rows
             : [],
@@ -107,7 +107,7 @@ export class OperationsController {
           u.role === "admin"
             ? (
                 await c.query(`SELECT e.*,to_char(starts,'YYYY-MM-DD') AS starts,to_char(ends,'YYYY-MM-DD') AS ends,to_char(due,'YYYY-MM-DD') AS due,
-        COALESCE((SELECT sum(amount) FROM payments p WHERE p.enrollment_id=e.id),0)::int AS paid,
+        COALESCE((SELECT sum(amount) FROM payments p WHERE p.enrollment_id=e.id AND p.voided_at IS NULL),0)::int AS paid,
         stats.attended,stats.excused,stats.absent,
         CASE WHEN e.sessions=10 THEN 2 WHEN e.sessions=20 THEN 4 WHEN e.sessions=30 THEN 6 ELSE 0 END AS excused_allowance,
         (stats.attended + stats.absent + GREATEST(0,stats.excused-(CASE WHEN e.sessions=10 THEN 2 WHEN e.sessions=20 THEN 4 WHEN e.sessions=30 THEN 6 ELSE 0 END)))::int AS used
@@ -381,7 +381,7 @@ export class OperationsController {
     return this.storage.withTransaction(async (c) => {
       const row = (
         await c.query(
-          "SELECT fee-COALESCE((SELECT sum(amount) FROM payments WHERE enrollment_id=e.id),0) AS owed FROM enrollments e WHERE id=$1",
+          "SELECT fee-COALESCE((SELECT sum(amount) FROM payments WHERE enrollment_id=e.id AND voided_at IS NULL),0) AS owed FROM enrollments e WHERE id=$1 AND status<>'cancelled'",
           [id],
         )
       ).rows[0];
@@ -394,6 +394,31 @@ export class OperationsController {
         [id, amount, String(b.note || "").slice(0, 500)],
       );
       await audit(c, req.user, "payment", { id, amount });
+      return { success: true };
+    });
+  }
+  @Post("payments/void") voidPayment(@Req() req: any, @Body() b: any) {
+    admin(req.user);
+    const id = number(b.id), reason = text(b.reason, 500);
+    return this.storage.withTransaction(async (c) => {
+      const result = await c.query(
+        "UPDATE payments SET voided_at=now(),void_reason=$1,voided_by=$2 WHERE id=$3 AND voided_at IS NULL",
+        [reason, req.user.id, id],
+      );
+      if (!result.rowCount) throw new BadRequestException("Giao dịch không tồn tại hoặc đã được hủy.");
+      await audit(c, req.user, "void_payment", { id, reason });
+      return { success: true };
+    });
+  }
+  @Post("enrollments/status") enrollmentStatus(@Req() req: any, @Body() b: any) {
+    admin(req.user);
+    const id = number(b.id);
+    if (!["active", "completed", "frozen", "cancelled"].includes(b.status))
+      throw new BadRequestException("Trạng thái gói không hợp lệ.");
+    return this.storage.withTransaction(async (c) => {
+      const result = await c.query("UPDATE enrollments SET status=$1 WHERE id=$2", [b.status, id]);
+      if (!result.rowCount) throw new NotFoundException("Không tìm thấy gói học.");
+      await audit(c, req.user, "enrollment_status", { id, status: b.status });
       return { success: true };
     });
   }

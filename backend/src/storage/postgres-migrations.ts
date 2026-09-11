@@ -64,7 +64,7 @@ export async function migrate(client: PoolClient, schema: string) {
         )
       ).rows[0]?.value || 0,
     );
-    if (version > 4)
+    if (version > 5)
       throw new Error("Database schema is newer than this application.");
     if (version === 0) {
       await client.query(schemaV1);
@@ -105,6 +105,14 @@ export async function migrate(client: PoolClient, schema: string) {
       await client.query(
         "UPDATE metadata SET value='4' WHERE key='schema_version'",
       );
+    }
+    if (version < 5) {
+      await client.query(`ALTER TABLE enrollments ADD COLUMN status TEXT NOT NULL DEFAULT 'active'
+        CHECK(status IN ('active','completed','frozen','cancelled'))`);
+      await client.query(`ALTER TABLE payments ADD COLUMN voided_at TIMESTAMPTZ,
+        ADD COLUMN void_reason TEXT,
+        ADD COLUMN voided_by INTEGER REFERENCES users(id)`);
+      await client.query("UPDATE metadata SET value='5' WHERE key='schema_version'");
     }
     await client.query("COMMIT");
   } catch (error) {

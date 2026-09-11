@@ -12,7 +12,7 @@ import {
   UnauthorizedException,
   ForbiddenException,
 } from "@nestjs/common";
-import { IsString, MinLength, MaxLength, Matches } from "class-validator";
+import { IsOptional, IsString, MinLength, MaxLength, Matches } from "class-validator";
 import {
   randomBytes,
   scrypt as scryptCallback,
@@ -48,6 +48,7 @@ export class LoginDto {
 }
 class SetupDto extends LoginDto {
   @IsString() @MinLength(2) @MaxLength(80) name: string;
+  @IsOptional() @IsString() @MaxLength(200) setupToken?: string;
 }
 class ChangePasswordDto {
   @IsString() @MaxLength(128) currentPassword: string;
@@ -69,6 +70,9 @@ export class AuthService {
     );
   }
   async setup(dto: SetupDto) {
+    const requiredToken = process.env.SETUP_TOKEN;
+    if (requiredToken && dto.setupToken !== requiredToken)
+      throw new ForbiddenException("Mã thiết lập quản trị không đúng.");
     const hash = await hashPassword(dto.password);
     return this.storage.withTransaction(async (c) => {
       if ((await c.query("SELECT 1 FROM users LIMIT 1")).rowCount)
@@ -227,7 +231,8 @@ export class AuthGuard implements CanActivate {
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
   @Get("status") async status() {
-    return { initialized: await this.auth.ready() };
+    const initialized = await this.auth.ready();
+    return { initialized, requiresSetupToken: !initialized && Boolean(process.env.SETUP_TOKEN) };
   }
   @Post("setup") setup(@Body() body: SetupDto) {
     return this.auth.setup(body);

@@ -31,20 +31,26 @@ export class BackupController {
         data[table] = (
           await c.query(`SELECT to_jsonb(t) AS row FROM ${table} t`)
         ).rows.map((r) => r.row);
-      return { version: 3, exportedAt: new Date().toISOString(), data };
+      data.lesson_photos = (
+        await c.query(`SELECT p.lesson_id,encode(p.image_data,'base64') AS image_base64,
+          p.mime_type,p.file_name,p.uploaded_at,u.username AS uploaded_by
+          FROM lesson_photos p JOIN users u ON u.id=p.uploaded_by`)
+      ).rows;
+      return { version: 4, exportedAt: new Date().toISOString(), data };
     }, false);
   }
   @Post("restore") restore(@Body() body: any, @Req() req: any) {
     if (
-      body?.version !== 3 ||
+      body?.version !== 4 ||
       !body.data ||
-      Object.keys(body.data).length !== tables.length ||
+      Object.keys(body.data).length !== tables.length + 1 ||
       !tables.every(
         (t) => Array.isArray(body.data[t]) && body.data[t].length <= 100000,
-      )
+      ) || !Array.isArray(body.data.lesson_photos) || body.data.lesson_photos.length > 10000
     )
       throw new BadRequestException("Bản sao đầy đủ phiên bản 3 không hợp lệ.");
     return this.storage.withTransaction(async (c) => {
+      await c.query("DELETE FROM lesson_photos");
       for (const table of [...tables].reverse())
         await c.query(`DELETE FROM ${table}`);
       for (const table of tables) {
@@ -66,6 +72,19 @@ export class BackupController {
         await c.query(
           `INSERT INTO ${table} SELECT * FROM jsonb_populate_recordset(NULL::${table},$1::jsonb)`,
           [JSON.stringify(body.data[table])],
+        );
+      }
+      for (const photo of body.data.lesson_photos) {
+        if (!photo || typeof photo !== "object" || typeof photo.image_base64 !== "string")
+          throw new BadRequestException("Ảnh trong bản sao không hợp lệ.");
+        const uploader = (
+          await c.query("SELECT id FROM users WHERE username=$1", [photo.uploaded_by])
+        ).rows[0];
+        if (!uploader) throw new BadRequestException("Không tìm thấy tài khoản đã tải ảnh.");
+        await c.query(
+          `INSERT INTO lesson_photos(lesson_id,image_data,mime_type,file_name,uploaded_by,uploaded_at)
+           VALUES($1,decode($2,'base64'),$3,$4,$5,$6)`,
+          [photo.lesson_id, photo.image_base64, photo.mime_type, photo.file_name, uploader.id, photo.uploaded_at],
         );
       }
       for (const table of [

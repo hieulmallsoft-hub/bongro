@@ -22,6 +22,10 @@ const names = {
   rejected: "Từ chối",
   draft: "Bản nháp",
   submitted: "Chờ duyệt",
+  active: "Đang hoạt động",
+  completed: "Đã hoàn thành",
+  frozen: "Bảo lưu",
+  cancelled: "Đã hủy",
 };
 let selectedAttendanceLessonId = null;
 let operationsFlash = null;
@@ -40,8 +44,8 @@ const table = (heads, rows) =>
 export async function loginScreen(onLogin) {
   const app = document.getElementById("app");
   try {
-    const { initialized } = await request("/auth/status");
-    app.innerHTML = `<div style="max-width:440px;margin:8vh auto;padding:20px"><h1>🏀 HoopStars</h1>${form("login", initialized ? "Đăng nhập học viện" : "Tạo quản trị viên đầu tiên", input("username", "Tên đăng nhập") + (!initialized ? input("name", "Họ tên") : "") + input("password", "Mật khẩu (tối thiểu 10 ký tự)", "password"), initialized ? "Đăng nhập" : "Tạo tài khoản")}</div>`;
+    const { initialized, requiresSetupToken } = await request("/auth/status");
+    app.innerHTML = `<div style="max-width:440px;margin:8vh auto;padding:20px"><h1>🏀 HoopStars</h1>${form("login", initialized ? "Đăng nhập học viện" : "Tạo quản trị viên đầu tiên", input("username", "Tên đăng nhập") + (!initialized ? input("name", "Họ tên") : "") + (!initialized && requiresSetupToken ? input("setupToken", "Mã thiết lập từ máy chủ", "password") : "") + input("password", "Mật khẩu (tối thiểu 10 ký tự)", "password"), initialized ? "Đăng nhập" : "Tạo tài khoản")}</div>`;
     document.getElementById("login").onsubmit = async (e) => {
       e.preventDefault();
       const button = e.target.querySelector("button");
@@ -291,6 +295,7 @@ export async function operationsScreen(
             "Học phí / đã thu",
             "Công nợ",
             "Hạn",
+            "Trạng thái / thao tác",
           ],
           data.enrollments.map((e) => [
             esc(studentName(e.student_id) + " / " + e.title),
@@ -299,6 +304,7 @@ export async function operationsScreen(
             money(e.fee - e.paid) +
               (e.due < today() && e.fee > e.paid ? " · Quá hạn" : ""),
             esc(e.starts + " → " + e.ends),
+            `${esc(names[e.status] || e.status)}<br><button class="btn secondary" data-package-status="${e.id}">Đổi trạng thái</button>`,
           ]),
         );
     if (tab === "guardians")
@@ -616,6 +622,12 @@ export async function operationsScreen(
         active: !u.active,
         classes: u.classes,
       });
+    });
+    buttons("[data-package-status]", (b) => {
+      const enrollment = data.enrollments.find((e) => e.id === Number(b.dataset.packageStatus));
+      const status = prompt("Nhập trạng thái: active, completed, frozen hoặc cancelled", enrollment.status);
+      if (!status || status === enrollment.status) return;
+      return action("/ops/enrollments/status", { id: enrollment.id, status });
     });
     buttons("[data-classes-user]", (b) => {
       const u = data.users.find((u) => u.id === Number(b.dataset.classesUser));

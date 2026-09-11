@@ -25,6 +25,7 @@ services:
       HOST: 0.0.0.0
       FRONTEND_ORIGIN: ${APP_ORIGIN:?Set APP_ORIGIN in .env.production}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      SETUP_TOKEN: ${SETUP_TOKEN:?Set SETUP_TOKEN in .env.production}
       DB_TYPE: postgres
       DB_HOST: postgres
       DB_PORT: 5432

@@ -36,7 +36,7 @@ export class ReportsController {
       async (c) =>
         (
           await c.query(
-            "SELECT a.* FROM session_attendance a JOIN lessons l ON l.id=a.lesson_id WHERE a.student_id=$1 AND to_char(l.date,'YYYY-MM')=$2 AND a.status IN ('present','late')",
+            "SELECT a.* FROM session_attendance a JOIN lessons l ON l.id=a.lesson_id WHERE a.student_id=$1 AND to_char(l.date,'YYYY-MM')=$2 ORDER BY l.date,l.start_time",
             [params.studentId, params.month],
           )
         ).rows,
@@ -46,6 +46,12 @@ export class ReportsController {
       student,
       month: params.month,
       attendance,
+      attendanceSummary: {
+        present: attendance.filter((a) => a.status === "present").length,
+        late: attendance.filter((a) => a.status === "late").length,
+        excused: attendance.filter((a) => a.status === "excused").length,
+        absent: attendance.filter((a) => a.status === "absent").length,
+      },
       report: await this.storage.report(params.studentId, params.month),
     };
   }

@@ -39,10 +39,11 @@ export function bindMonthlyReports() {
     try {
       const record = await request(path);
       const report = record.report || {};
+      const stats = record.attendanceSummary || { present: record.attendance.length, late: 0, excused: 0, absent: 0 };
       dirty = false;
       editor.innerHTML = `<h3>${escape(record.student.name)} · Tháng ${escape(record.month)}</h3>
-      <p>Lớp hiện tại: ${escape(record.student.group)} · <strong>${record.attendance.length} buổi đã tham gia</strong> trong tháng.</p>
-      <p style="font-size:12px;color:#718096">Tính các buổi có mặt hoặc đi muộn theo điểm danh buổi. Dữ liệu điểm danh ngày cũ chưa được gán buổi nên không cộng vào đây.</p>
+      <p>Lớp hiện tại: ${escape(record.student.group)} · <strong>${stats.present + stats.late} buổi đã tham gia</strong> trong tháng.</p>
+      <div class="session-summary"><span>Có mặt <strong>${stats.present}</strong></span><span>Đi muộn <strong>${stats.late}</strong></span><span>Nghỉ phép <strong>${stats.excused}</strong></span><span>Không phép <strong>${stats.absent}</strong></span></div>
       <form id="monthly-form" class="form-grid">
       <label>Huấn luyện viên phụ trách<input class="field" name="coach" maxlength="80" value="${escape(report.coach)}" required></label>
       ${[
@@ -117,13 +118,14 @@ export function bindMonthlyReports() {
 }
 
 export function printDocument(record, report) {
+  const stats = record.attendanceSummary || { present: record.attendance.length, late: 0, excused: 0, absent: 0 };
   const section = (title, value) =>
     `<section><h2>${title}</h2><p>${escape(value) || "Chưa có nhận xét."}</p></section>`;
   return `<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>Bao-cao-${escape(record.student.id)}-${escape(record.month)}</title>
   <style>@page{size:A4;margin:18mm}body{font-family:Arial,sans-serif;color:#17263a;line-height:1.65;max-width:780px;margin:30px auto;padding:15px}header{border-bottom:3px solid #f47c35;padding-bottom:15px}h1{font-size:23px}h2{font-size:16px;color:#b95723}p{white-space:pre-wrap;overflow-wrap:anywhere}section{margin-top:25px}h2{break-after:avoid}footer{margin-top:35px;border-top:1px solid #ddd;padding-top:15px;font-size:12px}.actions{padding:15px;background:#fff2e8}button{padding:10px;cursor:pointer}@media print{body{margin:0;padding:0}.actions{display:none}}</style></head><body>
   <div class="actions"><button onclick="window.print()">In / Lưu dưới dạng PDF</button> Chọn đích “Lưu dưới dạng PDF” trong hộp thoại in.</div>
   <header><strong>HOOPSTARS · BASKETBALL ACADEMY</strong><h1>BÁO CÁO TIẾN BỘ THÁNG ${escape(record.month)}</h1><p>Kính gửi phụ huynh học sinh ${escape(record.student.name)}</p></header>
-  <p><strong>Trạng thái:</strong> ${record.report?.status === "approved" ? "Đã được duyệt" : "Bản nháp / chưa duyệt – chưa gửi phụ huynh"}<br><strong>Học sinh:</strong> ${escape(record.student.name)} (${escape(record.student.id)})<br><strong>Lớp hiện tại:</strong> ${escape(record.student.group)}<br><strong>Huấn luyện viên:</strong> ${escape(report.coach)}<br><strong>Chuyên cần:</strong> ${record.attendance.length} buổi đã tham gia trong tháng</p>
+  <p><strong>Trạng thái:</strong> ${record.report?.status === "approved" ? "Đã được duyệt" : "Bản nháp / chưa duyệt – chưa gửi phụ huynh"}<br><strong>Học sinh:</strong> ${escape(record.student.name)} (${escape(record.student.id)})<br><strong>Lớp hiện tại:</strong> ${escape(record.student.group)}<br><strong>Huấn luyện viên:</strong> ${escape(report.coach)}<br><strong>Chuyên cần:</strong> Có mặt ${stats.present}, đi muộn ${stats.late}, nghỉ phép ${stats.excused}, nghỉ không phép ${stats.absent}</p>
   ${section("1. Điểm mạnh và tiến bộ", report.strengths)}${section("2. Nội dung cần cải thiện", report.improvements)}${section("3. Mục tiêu tháng tới và lời nhắn phụ huynh", report.goals)}
   <footer>Ngày xuất: ${new Date().toLocaleDateString("vi-VN")}<br>Huấn luyện viên: ${escape(report.coach)}<p>Cảm ơn quý phụ huynh đã đồng hành cùng học viện!</p></footer></body></html>`;
 }

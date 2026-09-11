@@ -183,6 +183,22 @@ test("operations: auth, scoped coaches, fees, leave, reports and complete backup
       overview = await call("/ops/overview");
       assert.equal(overview.enrollments[0].paid, 500000);
       assert.equal(overview.guardians[0].name, "Phụ huynh");
+      await call(
+        "/ops/enrollments/status",
+        "POST",
+        { id: enrollment.id, status: "frozen" },
+        201,
+      );
+      await call(
+        "/ops/payments/void",
+        "POST",
+        { id: overview.payments[0].id, reason: "Nhập nhầm giao dịch" },
+        201,
+      );
+      overview = await call("/ops/overview");
+      assert.equal(overview.enrollments[0].status, "frozen");
+      assert.equal(overview.enrollments[0].paid, 0);
+      assert.ok(overview.payments[0].voided_at);
     });
     await t.test(
       "approved leave preserves sessions and assigns makeup",

@@ -16,7 +16,7 @@ if [ ! -f .env.production ]; then
   echo "Đã tạo .env.production. Hãy sửa mật khẩu, APP_ORIGIN rồi chạy lại script."
   exit 2
 fi
-if grep -q 'CHANGE_TO_A_LONG_RANDOM_PASSWORD\|SERVER_IP' .env.production; then
+if grep -q 'CHANGE_TO_A_LONG_RANDOM_PASSWORD\|CHANGE_TO_A_DIFFERENT_LONG_RANDOM_TOKEN\|SERVER_IP' .env.production; then
   echo ".env.production vẫn còn giá trị mẫu. Hãy sửa trước khi triển khai."
   exit 2
 fi

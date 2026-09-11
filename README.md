@@ -205,6 +205,7 @@ DATABASE_SCHEMA=hoopstars
 APP_ORIGIN=http://IP_SERVER:8080
 APP_PORT=8080
 COOKIE_SECURE=false
+SETUP_TOKEN=mot-ma-thiet-lap-rieng-dai-va-kho-doan
 ```
 
 Khởi động:
@@ -216,6 +217,8 @@ docker compose --env-file .env.production -f compose.prod.yaml logs --tail=100 b
 ```
 
 Mở `http://IP_SERVER:8080`, tạo quản trị viên đầu tiên và đăng nhập. Nếu dùng domain có HTTPS qua reverse proxy, đặt `APP_ORIGIN=https://domain-cua-ban`, `COOKIE_SECURE=true`, và chỉ cho reverse proxy truy cập `APP_PORT`. `APP_ORIGIN` phải giống chính xác địa chỉ trên trình duyệt; nhiều địa chỉ được phân cách bằng dấu phẩy.
+
+`SETUP_TOKEN` chỉ dùng khi tạo quản trị viên đầu tiên. Nhập đúng mã này trên màn hình thiết lập; sau khi đã có admin, mã không còn được dùng cho đăng nhập.
 
 Không đưa `backend/.env` của máy phát triển hoặc `.env.production` lên Git. Mật khẩu PostgreSQL production nên khác mật khẩu máy cá nhân. Sau khi PostgreSQL đã tạo volume lần đầu, đổi `POSTGRES_PASSWORD` trong tệp không tự đổi mật khẩu bên trong database.
 
