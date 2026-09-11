@@ -1135,7 +1135,7 @@ function studentForm(id) {
         <label>
           Lớp học / Nhóm tuổi
           <input class="input-field" name="group" value="${esc(s?.group || "")}" list="groups" placeholder="Ví dụ: U12 Cơ bản, U15 Pro..." required maxlength="60">
-          <datalist id="groups">${[...new Set(data.students.map((st) => st.group))].map((g) => `<option value="${esc(g)}">`).join("")}</datalist>
+          <datalist id="groups">${[...new Set([...data.students.map((st) => st.group), ...data.lessons.map((lesson) => lesson.name)])].sort().map((g) => `<option value="${esc(g)}">`).join("")}</datalist>
         </label>
         <label>
           Số điện thoại liên hệ phụ huynh
@@ -1473,7 +1473,7 @@ async function studentProfile(
     const statusName = { present: "Có mặt", late: "Đi muộn", excused: "Nghỉ phép", absent: "Vắng" };
     const initials = student.name.split(" ").slice(-2).map((v) => v[0]).join("");
     app.innerHTML = `<div class="student-profile-page">
-      <div class="student-profile-top"><button class="btn secondary" id="student-profile-back">← Danh sách học sinh</button><div><button class="btn danger" id="student-profile-delete">Xóa học sinh</button> <button class="btn secondary" id="student-profile-check">Điểm danh</button> <button class="btn" id="student-profile-edit">Sửa hồ sơ</button></div></div>
+      <div class="student-profile-top"><button class="btn secondary" id="student-profile-back">← Danh sách học sinh</button><div><button class="btn danger" id="student-profile-delete">Xóa học sinh</button> <button class="btn secondary" id="student-profile-check">Điểm danh</button> <button class="btn secondary" id="student-profile-fees">Quản lý học phí</button> <button class="btn" id="student-profile-edit">Sửa hồ sơ / lớp</button></div></div>
       <section class="student-profile-hero"><div class="student-profile-avatar">${esc(initials)}</div><div><span class="ops-kicker">HỒ SƠ HỌC VIÊN</span><h1>${esc(student.name)}</h1><p>${esc(student.id)} · ${esc(student.group)} · ${esc(student.phone)}</p></div><label class="profile-month">Báo cáo tháng<input class="field" id="student-profile-month" type="month" value="${month}"></label></section>
       <div class="student-profile-metrics"><article><span>Phải đóng</span><strong>${Number(fee.total).toLocaleString("vi-VN")} đ</strong></article><article><span>Đã đóng</span><strong class="fee-paid">${Number(fee.paid).toLocaleString("vi-VN")} đ</strong></article><article><span>Còn thiếu</span><strong class="fee-owed">${Number(fee.owed).toLocaleString("vi-VN")} đ</strong></article><article><span>Buổi còn lại</span><strong>${remaining}</strong></article><article><span>Đã học</span><strong>${attended}</strong></article><article><span>Nghỉ phép / không phép</span><strong>${excused} / ${absent}</strong></article></div>
       <div class="student-profile-grid"><section class="card profile-card"><h2>Thông tin cá nhân</h2><dl><dt>Ngày sinh</dt><dd>${esc(student.dob)}</dd><dt>Lớp đang học</dt><dd>${esc(student.group)}</dd><dt>Liên hệ</dt><dd>${esc(student.phone)}</dd><dt>Trạng thái học phí</dt><dd>${esc(fee.status)}${fee.overdue ? " · Quá hạn" : ""}</dd></dl></section>
@@ -1484,6 +1484,10 @@ async function studentProfile(
     </div>`;
     document.getElementById("student-profile-back").onclick = () => history.back();
     document.getElementById("student-profile-edit").onclick = () => studentForm(id);
+    document.getElementById("student-profile-fees").onclick = () => {
+      history.pushState({ view: "operations", tab: "fees" }, "", "#fees");
+      operationsScreen(ops.user, () => history.back(), "fees");
+    };
     document.getElementById("student-profile-delete").onclick = async () => {
       const confirmation = prompt(`Nhập chính xác mã ${student.id} để xác nhận xóa ${student.name}:`);
       if (confirmation !== student.id) return;

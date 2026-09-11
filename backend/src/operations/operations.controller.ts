@@ -354,6 +354,8 @@ export class OperationsController {
       starts = date(b.starts),
       ends = date(b.ends),
       due = date(b.due);
+    if (![10, 20, 30].includes(sessions))
+      throw new BadRequestException("Chỉ hỗ trợ gói 10, 20 hoặc 30 buổi.");
     if (ends < starts)
       throw new BadRequestException("Ngày kết thúc trước ngày bắt đầu.");
     return this.storage.withTransaction(async (c) => {
@@ -371,6 +373,61 @@ export class OperationsController {
         [studentId, title, sessions, fee, starts, ends, due],
       );
       await audit(c, req.user, "create_enrollment", { studentId, title, fee });
+      return { success: true };
+    });
+  }
+  @Post("enrollments/update") updateEnrollment(@Req() req: any, @Body() b: any) {
+    admin(req.user);
+    const id = number(b.id),
+      title = text(b.title, 100),
+      sessions = number(b.sessions),
+      fee = number(b.fee, 0),
+      starts = date(b.starts),
+      ends = date(b.ends),
+      due = date(b.due);
+    if (![10, 20, 30].includes(sessions))
+      throw new BadRequestException("Chỉ hỗ trợ gói 10, 20 hoặc 30 buổi.");
+    if (ends < starts)
+      throw new BadRequestException("Ngày kết thúc trước ngày bắt đầu.");
+    return this.storage.withTransaction(async (c) => {
+      const current = (
+        await c.query(
+          `SELECT e.*,
+           COALESCE((SELECT sum(amount) FROM payments WHERE enrollment_id=e.id AND voided_at IS NULL),0)::int AS paid,
+           (SELECT count(*) FILTER (WHERE a.status IN ('present','late')) FROM session_attendance a JOIN lessons l ON l.id=a.lesson_id
+            WHERE a.student_id=e.student_id AND l.date BETWEEN e.starts AND e.ends)::int AS attended,
+           (SELECT count(*) FILTER (WHERE a.status='absent') FROM session_attendance a JOIN lessons l ON l.id=a.lesson_id
+            WHERE a.student_id=e.student_id AND l.date BETWEEN e.starts AND e.ends)::int AS absent,
+           (SELECT count(*) FILTER (WHERE a.status='excused') FROM session_attendance a JOIN lessons l ON l.id=a.lesson_id
+            WHERE a.student_id=e.student_id AND l.date BETWEEN e.starts AND e.ends)::int AS excused
+           FROM enrollments e WHERE e.id=$1`,
+          [id],
+        )
+      ).rows[0];
+      if (!current) throw new NotFoundException("Không tìm thấy gói học.");
+      if (fee < Number(current.paid))
+        throw new BadRequestException("Học phí mới không được thấp hơn số tiền đã thu.");
+      const allowance = sessions === 10 ? 2 : sessions === 20 ? 4 : 6;
+      const used = Number(current.attended) + Number(current.absent) +
+        Math.max(0, Number(current.excused) - allowance);
+      if (sessions < used)
+        throw new BadRequestException("Số buổi mới không được thấp hơn số buổi đã sử dụng.");
+      const overlap = await c.query(
+        `SELECT 1 FROM enrollments WHERE student_id=$1 AND id<>$2 AND status<>'cancelled'
+         AND starts<=$4::date AND ends>=$3::date`,
+        [current.student_id, id, starts, ends],
+      );
+      if (overlap.rowCount)
+        throw new BadRequestException("Gói học bị chồng thời hạn với một gói khác.");
+      await c.query(
+        `UPDATE enrollments SET title=$1,sessions=$2,fee=$3,starts=$4,ends=$5,due=$6 WHERE id=$7`,
+        [title, sessions, fee, starts, ends, due, id],
+      );
+      await audit(c, req.user, "update_enrollment", {
+        id,
+        before: current,
+        after: { title, sessions, fee, starts, ends, due },
+      });
       return { success: true };
     });
   }

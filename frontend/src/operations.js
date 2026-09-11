@@ -288,6 +288,18 @@ export async function operationsScreen(
             input("amount", "Số tiền thu", "number") +
             input("note", "Ghi chú", "text", "", false),
         ) +
+        form(
+          "edit-enrollment",
+          "Sửa gói học đã đăng ký",
+          `<input type="hidden" name="id">` +
+            input("title", "Tên gói") +
+            select("sessions", "Gói số buổi", [[10, "10 buổi · nghỉ phép tối đa 2"], [20, "20 buổi · nghỉ phép tối đa 4"], [30, "30 buổi · nghỉ phép tối đa 6"]]) +
+            input("fee", "Học phí phải đóng (đồng)", "number") +
+            input("starts", "Ngày bắt đầu", "date") +
+            input("ends", "Hạn gói", "date") +
+            input("due", "Hạn đóng tiền", "date"),
+          "Lưu thay đổi",
+        ).replace('<section class="card"', '<section class="card" id="edit-enrollment-card" hidden') +
         table(
           [
             "Học sinh / Gói",
@@ -304,7 +316,7 @@ export async function operationsScreen(
             money(e.fee - e.paid) +
               (e.due < today() && e.fee > e.paid ? " · Quá hạn" : ""),
             esc(e.starts + " → " + e.ends),
-            `${esc(names[e.status] || e.status)}<br><button class="btn secondary" data-package-status="${e.id}">Đổi trạng thái</button>`,
+            `${esc(names[e.status] || e.status)}<br><button class="btn secondary" data-edit-package="${e.id}">Sửa gói</button> <button class="btn secondary" data-package-status="${e.id}">Đổi trạng thái</button>`,
           ]),
         );
     if (tab === "guardians")
@@ -514,6 +526,7 @@ export async function operationsScreen(
         }
       };
     bind("enroll", "/ops/enrollments");
+    bind("edit-enrollment", "/ops/enrollments/update");
     bind("payment", "/ops/payments");
     if (tab === "fees") bindFees(data, today());
     bind("guardian", "/ops/guardians");
@@ -628,6 +641,15 @@ export async function operationsScreen(
       const status = prompt("Nhập trạng thái: active, completed, frozen hoặc cancelled", enrollment.status);
       if (!status || status === enrollment.status) return;
       return action("/ops/enrollments/status", { id: enrollment.id, status });
+    });
+    buttons("[data-edit-package]", (b) => {
+      const enrollment = data.enrollments.find((e) => e.id === Number(b.dataset.editPackage));
+      const editForm = document.getElementById("edit-enrollment");
+      document.getElementById("edit-enrollment-card").hidden = false;
+      for (const name of ["id", "title", "sessions", "fee", "starts", "ends", "due"])
+        editForm.elements[name].value = enrollment[name];
+      editForm.scrollIntoView({ behavior: "smooth", block: "center" });
+      editForm.elements.title.focus();
     });
     buttons("[data-classes-user]", (b) => {
       const u = data.users.find((u) => u.id === Number(b.dataset.classesUser));

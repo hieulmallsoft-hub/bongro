@@ -185,6 +185,51 @@ test("operations: auth, scoped coaches, fees, leave, reports and complete backup
       assert.equal(overview.enrollments[0].paid, 500000);
       assert.equal(overview.guardians[0].name, "Phụ huynh");
       await call(
+        "/ops/enrollments/update",
+        "POST",
+        {
+          id: enrollment.id,
+          title: "Gói 10 buổi nâng cao",
+          sessions: 10,
+          fee: 1400000,
+          starts: dateKey(),
+          ends: dateKey(),
+          due: dateKey(),
+        },
+        201,
+      );
+      await call(
+        "/ops/enrollments/update",
+        "POST",
+        {
+          id: enrollment.id,
+          title: "Không hợp lệ",
+          sessions: 10,
+          fee: 400000,
+          starts: dateKey(),
+          ends: dateKey(),
+          due: dateKey(),
+        },
+        400,
+      );
+      await call(
+        "/ops/enrollments/update",
+        "POST",
+        {
+          id: enrollment.id,
+          title: "Sai loại gói",
+          sessions: 15,
+          fee: 1400000,
+          starts: dateKey(),
+          ends: dateKey(),
+          due: dateKey(),
+        },
+        400,
+      );
+      overview = await call("/ops/overview");
+      assert.equal(overview.enrollments[0].title, "Gói 10 buổi nâng cao");
+      assert.equal(overview.enrollments[0].fee, 1400000);
+      await call(
         "/ops/enrollments/status",
         "POST",
         { id: enrollment.id, status: "frozen" },
