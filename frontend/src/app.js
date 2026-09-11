@@ -1,6 +1,7 @@
 import { api } from "./api.js";
 import { request } from "./api.js";
 import { loginScreen, operationsNav, operationsScreen } from "./operations.js";
+import { feeSummary } from "./student-fees.js";
 import "./style.css";
 
 /* ==========================================================================
@@ -1413,7 +1414,48 @@ function bind() {
 function bindStudents() {
   document
     .querySelectorAll("[data-student]")
-    .forEach((b) => (b.onclick = () => studentForm(b.dataset.student)));
+    .forEach((b) => (b.onclick = () => studentProfile(b.dataset.student)));
+}
+
+async function studentProfile(id, month = dateKey().slice(0, 7)) {
+  const app = document.getElementById("app");
+  app.innerHTML = '<div class="empty-state">Đang tải hồ sơ học sinh…</div>';
+  try {
+    const ops = await request(`/ops/overview?month=${month}`);
+    const student = ops.students.find((s) => s.id === id);
+    if (!student) throw new Error("Không tìm thấy học sinh hoặc bạn không có quyền xem lớp này.");
+    const fee = feeSummary(student, ops.enrollments || [], dateKey());
+    const guardian = (ops.guardians || []).find((g) => g.student_id === id);
+    const records = (ops.attendance || [])
+      .filter((a) => a.student_id === id)
+      .map((a) => ({ ...a, lesson: ops.lessons.find((l) => l.id === a.lesson_id) }))
+      .sort((a, b) => String(b.lesson?.date || "").localeCompare(String(a.lesson?.date || "")));
+    const attended = records.filter((a) => ["present", "late"].includes(a.status)).length;
+    const excused = records.filter((a) => a.status === "excused").length;
+    const absent = records.filter((a) => a.status === "absent").length;
+    const remaining = fee.rows.reduce((sum, e) => sum + Math.max(0, e.sessions - e.used), 0);
+    const payments = (ops.payments || []).filter((p) => p.student_id === id);
+    const report = (ops.reports || []).find((r) => r.student_id === id);
+    const statusName = { present: "Có mặt", late: "Đi muộn", excused: "Nghỉ phép", absent: "Vắng" };
+    const initials = student.name.split(" ").slice(-2).map((v) => v[0]).join("");
+    app.innerHTML = `<div class="student-profile-page">
+      <div class="student-profile-top"><button class="btn secondary" id="student-profile-back">← Danh sách học sinh</button><div><button class="btn secondary" id="student-profile-check">Điểm danh</button> <button class="btn" id="student-profile-edit">Sửa hồ sơ</button></div></div>
+      <section class="student-profile-hero"><div class="student-profile-avatar">${esc(initials)}</div><div><span class="ops-kicker">HỒ SƠ HỌC VIÊN</span><h1>${esc(student.name)}</h1><p>${esc(student.id)} · ${esc(student.group)} · ${esc(student.phone)}</p></div><label class="profile-month">Báo cáo tháng<input class="field" id="student-profile-month" type="month" value="${month}"></label></section>
+      <div class="student-profile-metrics"><article><span>Phải đóng</span><strong>${Number(fee.total).toLocaleString("vi-VN")} đ</strong></article><article><span>Đã đóng</span><strong class="fee-paid">${Number(fee.paid).toLocaleString("vi-VN")} đ</strong></article><article><span>Còn thiếu</span><strong class="fee-owed">${Number(fee.owed).toLocaleString("vi-VN")} đ</strong></article><article><span>Buổi còn lại</span><strong>${remaining}</strong></article><article><span>Đã học</span><strong>${attended}</strong></article><article><span>Nghỉ phép / không phép</span><strong>${excused} / ${absent}</strong></article></div>
+      <div class="student-profile-grid"><section class="card profile-card"><h2>Thông tin cá nhân</h2><dl><dt>Ngày sinh</dt><dd>${esc(student.dob)}</dd><dt>Lớp đang học</dt><dd>${esc(student.group)}</dd><dt>Liên hệ</dt><dd>${esc(student.phone)}</dd><dt>Trạng thái học phí</dt><dd>${esc(fee.status)}${fee.overdue ? " · Quá hạn" : ""}</dd></dl></section>
+      <section class="card profile-card"><h2>Phụ huynh và người đón</h2>${guardian ? `<dl><dt>Phụ huynh</dt><dd>${esc(guardian.name)} · ${esc(guardian.relationship)}</dd><dt>Điện thoại</dt><dd>${esc(guardian.phone)}</dd><dt>Email</dt><dd>${esc(guardian.email || "Chưa cập nhật")}</dd><dt>Được phép đón</dt><dd>${esc(guardian.authorized_pickup || "Chưa cập nhật")}</dd></dl>` : "<p>Chưa cập nhật hồ sơ phụ huynh.</p>"}</section></div>
+      <section class="card profile-wide-card"><h2>Gói học và học phí</h2><div class="table-responsive"><table><thead><tr><th>Gói học</th><th>Thời hạn</th><th>Số buổi</th><th>Đã học</th><th>Nghỉ phép</th><th>Không phép</th><th>Còn lại</th><th>Đã đóng / còn thiếu</th></tr></thead><tbody>${fee.rows.map((e) => `<tr><td><strong>${esc(e.title)}</strong></td><td>${esc(e.starts)} → ${esc(e.ends)}</td><td>${e.sessions}</td><td>${e.attended}</td><td>${e.excused}/${e.excused_allowance}</td><td>${e.absent}</td><td><strong>${Math.max(0, e.sessions - e.used)}</strong></td><td><span class="fee-paid">${Number(e.paid).toLocaleString("vi-VN")} đ</span><br><span class="fee-owed">${Number(e.fee - e.paid).toLocaleString("vi-VN")} đ</span></td></tr>`).join("") || '<tr><td colspan="8">Chưa đăng ký gói học.</td></tr>'}</tbody></table></div></section>
+      <section class="card profile-wide-card"><h2>Lịch sử điểm danh</h2><div class="table-responsive"><table><thead><tr><th>Ngày</th><th>Buổi / lớp</th><th>Trạng thái</th><th>Check-in / out</th><th>Ảnh buổi tập</th></tr></thead><tbody>${records.map((a) => { const photo = ops.lessonPhotos.find((p) => p.lesson_id === a.lesson_id); return `<tr><td>${esc(a.lesson?.date || "—")}</td><td>${esc(a.lesson?.name || "—")}<br><small>${esc(a.lesson?.start || "")} · ${esc(a.lesson?.court || "")}</small></td><td><span class="badge ${a.status === "absent" ? "out" : a.status === "excused" ? "pending" : "present"}">${esc(statusName[a.status])}</span></td><td>${a.check_in ? new Date(a.check_in).toLocaleTimeString("vi-VN") : "—"} / ${a.check_out ? new Date(a.check_out).toLocaleTimeString("vi-VN") : "—"}</td><td>${photo ? `<a class="link-action" target="_blank" href="/api/ops/lesson-photo?lessonId=${a.lesson_id}">Xem ảnh</a>` : "—"}</td></tr>`; }).join("") || '<tr><td colspan="5">Chưa có dữ liệu điểm danh.</td></tr>'}</tbody></table></div></section>
+      <div class="student-profile-grid"><section class="card profile-card"><h2>Nhận xét tháng ${esc(month)}</h2>${report ? `<p><strong>Điểm mạnh</strong><br>${esc(report.strengths)}</p><p><strong>Cần cải thiện</strong><br>${esc(report.improvements)}</p><p><strong>Mục tiêu</strong><br>${esc(report.goals)}</p><span class="badge present">${esc(report.status)}</span>` : "<p>HLV chưa viết nhận xét tháng này.</p>"}</section><section class="card profile-card"><h2>Lịch sử thanh toán</h2>${payments.map((p) => `<div class="profile-payment"><div><strong>${esc(p.title)}</strong><small>${new Date(p.paid_at).toLocaleString("vi-VN")}</small></div><strong class="fee-paid">${Number(p.amount).toLocaleString("vi-VN")} đ</strong></div>`).join("") || "<p>Chưa có thanh toán.</p>"}</section></div>
+    </div>`;
+    document.getElementById("student-profile-back").onclick = render;
+    document.getElementById("student-profile-edit").onclick = () => studentForm(id);
+    document.getElementById("student-profile-check").onclick = () => check(id, !!(todayRecord(id) && !todayRecord(id).out));
+    document.getElementById("student-profile-month").onchange = (event) => studentProfile(id, event.target.value || month);
+  } catch (error) {
+    app.innerHTML = `<div class="empty-state"><p class="error-text">${esc(error.message)}</p><button class="btn" id="student-profile-retry">Quay lại</button></div>`;
+    document.getElementById("student-profile-retry").onclick = render;
+  }
 }
 
 async function refresh() {
