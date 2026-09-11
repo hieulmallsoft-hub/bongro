@@ -2169,6 +2169,15 @@ footer {
 [data-roster-mark="late"] { color: #9a5a00 !important; border-color: #f6d486 !important; background: #fff8e6 !important; }
 [data-roster-mark="excused"] { color: #2563a9 !important; border-color: #b9d6f8 !important; background: #edf6ff !important; }
 [data-roster-mark="absent"] { color: #c03535 !important; border-color: #f4bbbb !important; background: #fff0f0 !important; }
+[data-roster-mark].is-current { color: #fff !important; border-color: transparent !important; box-shadow: 0 5px 13px rgba(15,31,55,.2); }
+[data-roster-mark="present"].is-current { background: #10965a !important; }
+[data-roster-mark="late"].is-current { background: #d98a0b !important; }
+[data-roster-mark="excused"].is-current { background: #327bc8 !important; }
+[data-roster-mark="absent"].is-current { background: #d84b45 !important; }
+.attendance-summary { display: grid; grid-template-columns: repeat(6,1fr); gap: 10px; margin: 16px 0; }
+.attendance-summary article { padding: 13px 14px; border: 1px solid #e4eaf2; border-radius: 12px; background: #f8fafc; }
+.attendance-summary span { display: block; min-height: 30px; color: var(--text-muted); font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.attendance-summary strong { display: block; color: #17263a; font-size: 22px; }
 
 .ops-photo-panel { margin-top: 22px; padding: 20px; border-radius: 15px; background: linear-gradient(135deg,#111c2d,#1d3049); color: #fff; display: grid; grid-template-columns: minmax(0,1fr) minmax(280px,420px); gap: 22px; align-items: center; }
 .ops-photo-panel img { width: 100%; object-fit: cover; border: 1px solid rgba(255,255,255,.15); }
@@ -2246,6 +2255,7 @@ footer {
   .fee-toolbar { grid-template-columns: repeat(2,1fr); }
   .fee-toolbar #fee-search { grid-column: 1 / -1; }
   .fee-detail-metrics { grid-template-columns: repeat(2,1fr); }
+  .attendance-summary { grid-template-columns: repeat(3,1fr); }
   .student-profile-grid { grid-template-columns: 1fr; }
   .student-profile-hero { align-items: flex-start; flex-wrap: wrap; }
   .profile-month { width: 100%; margin-left: 96px; }
@@ -2265,4 +2275,5 @@ footer {
   .profile-month { margin-left: 0; }
   .student-profile-metrics { grid-template-columns: repeat(2,1fr); }
   .profile-card dl { grid-template-columns: 1fr; gap: 4px; }
+  .attendance-summary { grid-template-columns: repeat(2,1fr); }
 }

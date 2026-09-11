@@ -23,6 +23,7 @@ const names = {
   draft: "Bản nháp",
   submitted: "Chờ duyệt",
 };
+let selectedAttendanceLessonId = null;
 const input = (name, label, type = "text", value = "", required = true) =>
   `<label>${label}<input class="field" name="${name}" type="${type}" value="${esc(value)}" ${required ? "required" : ""}></label>`;
 const select = (name, label, items) =>
@@ -104,7 +105,10 @@ export async function operationsScreen(
       return l ? l.date + " " + l.start + " " + l.name : id;
     };
     const defaultLesson =
-      data.lessons.find((l) => l.date === today()) || data.lessons[0];
+      data.lessons.find((l) => l.id === selectedAttendanceLessonId) ||
+      data.lessons.find((l) => l.date === today()) ||
+      data.lessons[0];
+    if (defaultLesson) selectedAttendanceLessonId = defaultLesson.id;
     const rosterFor = (lessonId) => {
       const lesson = data.lessons.find((l) => l.id === Number(lessonId));
       if (!lesson) return [];
@@ -122,7 +126,11 @@ export async function operationsScreen(
       );
     };
     const rosterTable = (lessonId) => {
-      const rows = rosterFor(lessonId).map((s) => {
+      const roster = rosterFor(lessonId);
+      const attendance = data.attendance.filter((a) => a.lesson_id === Number(lessonId));
+      const count = (status) => attendance.filter((a) => a.status === status && roster.some((s) => s.id === a.student_id)).length;
+      const marked = roster.filter((s) => attendance.some((a) => a.student_id === s.id)).length;
+      const rows = roster.map((s) => {
         const a = data.attendance.find(
           (a) => a.lesson_id === Number(lessonId) && a.student_id === s.id,
         );
@@ -136,11 +144,11 @@ export async function operationsScreen(
             ["excused", "Nghỉ phép"],
             ["absent", "Vắng"],
           ]
-            .map(([status, label]) => `<button class="btn secondary" type="button" data-roster-mark="${status}" data-lesson="${lessonId}" data-student="${esc(s.id)}">${label}</button>`)
+            .map(([status, label]) => `<button class="btn secondary ${a?.status === status ? "is-current" : ""}" type="button" data-roster-mark="${status}" data-lesson="${lessonId}" data-student="${esc(s.id)}">${a?.status === status ? "✓ " : ""}${label}</button>`)
             .join("")}</div>`,
         ];
       });
-      return table(["Học sinh", "Trạng thái", "Check-in", "Điểm danh"], rows);
+      return `<div class="attendance-summary"><article><span>Sĩ số</span><strong>${roster.length}</strong></article><article><span>Có mặt</span><strong>${count("present")}</strong></article><article><span>Đi muộn</span><strong>${count("late")}</strong></article><article><span>Nghỉ phép</span><strong>${count("excused")}</strong></article><article><span>Vắng</span><strong>${count("absent")}</strong></article><article><span>Chưa điểm danh</span><strong>${Math.max(0, roster.length - marked)}</strong></article></div>${table(["Học sinh", "Trạng thái", "Check-in", "Điểm danh"], rows)}`;
     };
     const tabs = [
       ["password", "Đổi mật khẩu"],
@@ -526,6 +534,7 @@ export async function operationsScreen(
     if (lessonFilter) {
       renderPhoto(lessonFilter.value);
       lessonFilter.onchange = () => {
+        selectedAttendanceLessonId = Number(lessonFilter.value);
         document.getElementById("lesson-roster").innerHTML = rosterTable(lessonFilter.value);
         document.querySelector('#lesson-photo-form [name="lessonId"]').value = lessonFilter.value;
         const markLesson = document.querySelector('#mark [name="lessonId"]');
@@ -536,6 +545,7 @@ export async function operationsScreen(
         const button = event.target.closest("[data-roster-mark]");
         if (!button) return;
         button.disabled = true;
+        selectedAttendanceLessonId = Number(button.dataset.lesson);
         try {
           await action("/ops/attendance", {
             lessonId: button.dataset.lesson,
