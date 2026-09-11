@@ -8,6 +8,7 @@ import {
   Post,
   Query,
   Req,
+  Res,
 } from "@nestjs/common";
 import { StorageService } from "../storage/postgres-storage.service";
 import { User, hashPassword } from "./auth";
@@ -75,6 +76,15 @@ export class OperationsController {
             [ids],
           )
         ).rows,
+        lessonPhotos: (
+          await c.query(
+            `SELECT p.lesson_id,p.file_name,p.mime_type,p.uploaded_at,u.name AS uploaded_by
+             FROM lesson_photos p JOIN users u ON u.id=p.uploaded_by
+             JOIN lessons l ON l.id=p.lesson_id
+             WHERE $1='admin' OR l.name=ANY($2::text[])`,
+            [u.role, u.classes],
+          )
+        ).rows,
         reports: (
           await c.query(
             "SELECT * FROM monthly_reports WHERE month=$1 AND student_id=ANY($2::text[])",
@@ -98,7 +108,17 @@ export class OperationsController {
             ? (
                 await c.query(`SELECT e.*,to_char(starts,'YYYY-MM-DD') AS starts,to_char(ends,'YYYY-MM-DD') AS ends,to_char(due,'YYYY-MM-DD') AS due,
         COALESCE((SELECT sum(amount) FROM payments p WHERE p.enrollment_id=e.id),0)::int AS paid,
-        (SELECT count(*)::int FROM session_attendance a JOIN lessons l ON l.id=a.lesson_id WHERE a.student_id=e.student_id AND a.status IN ('present','late') AND l.date BETWEEN e.starts AND e.ends) AS used FROM enrollments e ORDER BY e.id DESC`)
+        stats.attended,stats.excused,stats.absent,
+        CASE WHEN e.sessions=10 THEN 2 WHEN e.sessions=20 THEN 4 WHEN e.sessions=30 THEN 6 ELSE 0 END AS excused_allowance,
+        (stats.attended + stats.absent + GREATEST(0,stats.excused-(CASE WHEN e.sessions=10 THEN 2 WHEN e.sessions=20 THEN 4 WHEN e.sessions=30 THEN 6 ELSE 0 END)))::int AS used
+        FROM enrollments e
+        CROSS JOIN LATERAL (SELECT
+          count(*) FILTER (WHERE a.status IN ('present','late'))::int AS attended,
+          count(*) FILTER (WHERE a.status='excused')::int AS excused,
+          count(*) FILTER (WHERE a.status='absent')::int AS absent
+          FROM session_attendance a JOIN lessons l ON l.id=a.lesson_id
+          WHERE a.student_id=e.student_id AND l.date BETWEEN e.starts AND e.ends) stats
+        ORDER BY e.id DESC`)
               ).rows
             : [],
         leaves: (
@@ -135,6 +155,49 @@ export class OperationsController {
       }),
       false,
     );
+  }
+  @Get("lesson-photo") async lessonPhoto(
+    @Req() req: any,
+    @Query("lessonId") rawLessonId: string,
+    @Res() res: any,
+  ) {
+    const lessonId = number(rawLessonId);
+    const row = await this.storage.withTransaction(async (c) => (
+      await c.query(
+        `SELECT p.image_data,p.mime_type,l.name FROM lesson_photos p
+         JOIN lessons l ON l.id=p.lesson_id WHERE p.lesson_id=$1`,
+        [lessonId],
+      )
+    ).rows[0], false);
+    if (!row) throw new NotFoundException("Chưa có ảnh buổi tập.");
+    if (req.user.role === "coach" && !req.user.classes.includes(row.name))
+      throw new ForbiddenException();
+    res.set({ "Content-Type": row.mime_type, "Cache-Control": "private, max-age=300" });
+    res.send(row.image_data);
+  }
+  @Post("lesson-photo") async saveLessonPhoto(@Req() req: any, @Body() b: any) {
+    const lessonId = number(b.lessonId);
+    const match = typeof b.image === "string" && b.image.match(/^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/);
+    if (!match) throw new BadRequestException("Ảnh phải là JPEG, PNG hoặc WebP.");
+    const image = Buffer.from(match[2], "base64");
+    if (!image.length || image.length > 4 * 1024 * 1024)
+      throw new BadRequestException("Ảnh tối đa 4 MB.");
+    const fileName = typeof b.fileName === "string" ? b.fileName.slice(0, 160) : "anh-buoi-tap";
+    return this.storage.withTransaction(async (c) => {
+      const lesson = (await c.query("SELECT name FROM lessons WHERE id=$1", [lessonId])).rows[0];
+      if (!lesson) throw new NotFoundException("Không tìm thấy buổi tập.");
+      if (req.user.role === "coach" && !req.user.classes.includes(lesson.name))
+        throw new ForbiddenException();
+      await c.query(
+        `INSERT INTO lesson_photos(lesson_id,image_data,mime_type,file_name,uploaded_by)
+         VALUES($1,$2,$3,$4,$5) ON CONFLICT(lesson_id) DO UPDATE SET
+         image_data=excluded.image_data,mime_type=excluded.mime_type,file_name=excluded.file_name,
+         uploaded_by=excluded.uploaded_by,uploaded_at=now()`,
+        [lessonId, image, match[1], fileName, req.user.id],
+      );
+      await audit(c, req.user, "lesson_photo", { lessonId, fileName, bytes: image.length });
+      return { success: true };
+    });
   }
   @Post("users") async user(@Req() req: any, @Body() b: any) {
     admin(req.user);

@@ -215,7 +215,7 @@ export class AuthGuard implements CanActivate {
       user.role === "coach" &&
       !(
         /^\/auth\//.test(path) ||
-        /^\/ops\/(overview|attendance)$/.test(path) ||
+        /^\/ops\/(overview|attendance|lesson-photo)$/.test(path) ||
         /^\/reports\//.test(path)
       )
     )

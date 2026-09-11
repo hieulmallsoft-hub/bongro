@@ -103,6 +103,45 @@ export async function operationsScreen(
       const l = data.lessons.find((l) => l.id === id);
       return l ? l.date + " " + l.start + " " + l.name : id;
     };
+    const defaultLesson =
+      data.lessons.find((l) => l.date === today()) || data.lessons[0];
+    const rosterFor = (lessonId) => {
+      const lesson = data.lessons.find((l) => l.id === Number(lessonId));
+      if (!lesson) return [];
+      const makeupIds = new Set(
+        data.leaves
+          .filter(
+            (l) =>
+              l.status === "approved" &&
+              l.makeup_lesson_id === Number(lessonId),
+          )
+          .map((l) => l.student_id),
+      );
+      return data.students.filter(
+        (s) => s.group === lesson.name || makeupIds.has(s.id),
+      );
+    };
+    const rosterTable = (lessonId) => {
+      const rows = rosterFor(lessonId).map((s) => {
+        const a = data.attendance.find(
+          (a) => a.lesson_id === Number(lessonId) && a.student_id === s.id,
+        );
+        return [
+          esc(s.name + " · " + s.id),
+          esc(a ? names[a.status] : "Chưa điểm danh"),
+          esc(a?.check_in ? new Date(a.check_in).toLocaleTimeString("vi-VN") : "—"),
+          `<div style="display:flex;gap:6px;flex-wrap:wrap">${[
+            ["present", "Có mặt"],
+            ["late", "Đi muộn"],
+            ["excused", "Nghỉ phép"],
+            ["absent", "Vắng"],
+          ]
+            .map(([status, label]) => `<button class="btn secondary" type="button" data-roster-mark="${status}" data-lesson="${lessonId}" data-student="${esc(s.id)}">${label}</button>`)
+            .join("")}</div>`,
+        ];
+      });
+      return table(["Học sinh", "Trạng thái", "Check-in", "Điểm danh"], rows);
+    };
     const tabs = [
       ["password", "Đổi mật khẩu"],
       ["attendance", "Điểm danh buổi"],
@@ -147,6 +186,17 @@ export async function operationsScreen(
       );
     if (tab === "attendance")
       content =
+        `<section class="card" style="padding:20px;margin-bottom:18px">
+          <h3>Danh sách học buổi tập</h3>
+          <label>Chọn buổi tập<select class="field" id="attendance-lesson-filter">${lessonOpts.map(([id, label]) => `<option value="${id}" ${id === defaultLesson?.id ? "selected" : ""}>${esc(label)}</option>`).join("")}</select></label>
+          <div id="lesson-roster">${rosterTable(defaultLesson?.id)}</div>
+          <div id="lesson-photo" style="margin-top:18px"></div>
+          <form id="lesson-photo-form" class="form-grid">
+            <input type="hidden" name="lessonId" value="${defaultLesson?.id || ""}">
+            <label>Ảnh check-in của buổi<input class="field" name="photo" type="file" accept="image/jpeg,image/png,image/webp" required></label>
+            <button class="btn">Tải ảnh lên</button><p class="form-message" role="status"></p>
+          </form>
+        </section>` +
         form(
           "mark",
           "Điểm danh theo buổi",
@@ -189,7 +239,7 @@ export async function operationsScreen(
           "Đăng ký kỳ học phí cho học sinh",
           select("studentId", "Học sinh", studentOpts) +
             input("title", "Tên gói") +
-            input("sessions", "Số buổi", "number", "12") +
+            select("sessions", "Gói số buổi", [[10, "10 buổi · nghỉ phép tối đa 2"], [20, "20 buổi · nghỉ phép tối đa 4"], [30, "30 buổi · nghỉ phép tối đa 6"]]) +
             input("fee", "Học phí (đồng)", "number") +
             input("starts", "Ngày bắt đầu", "date", today()) +
             input("ends", "Hạn gói", "date") +
@@ -223,7 +273,7 @@ export async function operationsScreen(
           ],
           data.enrollments.map((e) => [
             esc(studentName(e.student_id) + " / " + e.title),
-            `${e.used} / ${Math.max(0, e.sessions - e.used)}`,
+            `<strong>${e.used} / ${Math.max(0, e.sessions - e.used)}</strong><br><small>Gói ${e.sessions} · Đã học ${e.attended} · Nghỉ phép ${e.excused}/${e.excused_allowance} · Không phép ${e.absent}</small>`,
             money(e.fee) + " / " + money(e.paid),
             money(e.fee - e.paid) +
               (e.due < today() && e.fee > e.paid ? " · Quá hạn" : ""),
@@ -456,6 +506,71 @@ export async function operationsScreen(
             }
           }),
       );
+    const lessonFilter = document.getElementById("attendance-lesson-filter");
+    const photoFor = (lessonId) =>
+      data.lessonPhotos.find((p) => p.lesson_id === Number(lessonId));
+    const renderPhoto = (lessonId) => {
+      const target = document.getElementById("lesson-photo");
+      if (!target) return;
+      const photo = photoFor(lessonId);
+      target.innerHTML = photo
+        ? `<p><strong>Ảnh check-in:</strong> ${esc(photo.file_name)} · ${esc(photo.uploaded_by)} · ${new Date(photo.uploaded_at).toLocaleString("vi-VN")}</p><img src="/api/ops/lesson-photo?lessonId=${lessonId}&v=${encodeURIComponent(photo.uploaded_at)}" alt="Ảnh check-in buổi tập" style="display:block;max-width:100%;max-height:480px;border-radius:14px">`
+        : "<p>Buổi tập này chưa có ảnh check-in.</p>";
+    };
+    if (lessonFilter) {
+      renderPhoto(lessonFilter.value);
+      lessonFilter.onchange = () => {
+        document.getElementById("lesson-roster").innerHTML = rosterTable(lessonFilter.value);
+        document.querySelector('#lesson-photo-form [name="lessonId"]').value = lessonFilter.value;
+        const markLesson = document.querySelector('#mark [name="lessonId"]');
+        if (markLesson) markLesson.value = lessonFilter.value;
+        renderPhoto(lessonFilter.value);
+      };
+      document.getElementById("lesson-roster").onclick = async (event) => {
+        const button = event.target.closest("[data-roster-mark]");
+        if (!button) return;
+        button.disabled = true;
+        try {
+          await action("/ops/attendance", {
+            lessonId: button.dataset.lesson,
+            studentId: button.dataset.student,
+            status: button.dataset.rosterMark,
+          });
+        } catch (error) {
+          document.getElementById("ops-message").textContent = error.message;
+          button.disabled = false;
+        }
+      };
+      document.getElementById("lesson-photo-form").onsubmit = async (event) => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        const file = form.elements.photo.files[0];
+        const message = form.querySelector(".form-message");
+        if (!file) return;
+        if (file.size > 4 * 1024 * 1024) {
+          message.textContent = "Ảnh tối đa 4 MB.";
+          return;
+        }
+        const button = form.querySelector("button");
+        button.disabled = true;
+        try {
+          const image = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(new Error("Không đọc được ảnh."));
+            reader.readAsDataURL(file);
+          });
+          await action("/ops/lesson-photo", {
+            lessonId: form.elements.lessonId.value,
+            fileName: file.name,
+            image,
+          });
+        } catch (error) {
+          message.textContent = error.message;
+          button.disabled = false;
+        }
+      };
+    }
     buttons("[data-checkout]", (b) =>
       action("/ops/attendance", {
         lessonId: b.dataset.checkout,

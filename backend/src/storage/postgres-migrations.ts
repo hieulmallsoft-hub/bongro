@@ -64,7 +64,7 @@ export async function migrate(client: PoolClient, schema: string) {
         )
       ).rows[0]?.value || 0,
     );
-    if (version > 3)
+    if (version > 4)
       throw new Error("Database schema is newer than this application.");
     if (version === 0) {
       await client.query(schemaV1);
@@ -91,6 +91,19 @@ export async function migrate(client: PoolClient, schema: string) {
       await client.query(operationsSchema);
       await client.query(
         "UPDATE metadata SET value='3' WHERE key='schema_version'",
+      );
+    }
+    if (version < 4) {
+      await client.query(`CREATE TABLE lesson_photos (
+        lesson_id INTEGER PRIMARY KEY REFERENCES lessons(id) ON DELETE CASCADE,
+        image_data BYTEA NOT NULL,
+        mime_type TEXT NOT NULL CHECK(mime_type IN ('image/jpeg','image/png','image/webp')),
+        file_name TEXT NOT NULL,
+        uploaded_by INTEGER NOT NULL REFERENCES users(id),
+        uploaded_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      )`);
+      await client.query(
+        "UPDATE metadata SET value='4' WHERE key='schema_version'",
       );
     }
     await client.query("COMMIT");

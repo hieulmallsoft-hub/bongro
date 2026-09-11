@@ -95,6 +95,18 @@ test("operations: auth, scoped coaches, fees, leave, reports and complete backup
         coach,
       );
       await call(
+        "/ops/lesson-photo",
+        "POST",
+        {
+          lessonId: 1,
+          fileName: "check-in.png",
+          image:
+            "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+        },
+        201,
+        coach,
+      );
+      await call(
         "/ops/attendance",
         "POST",
         { studentId: "HS004", lessonId: 1, status: "late" },
@@ -127,8 +139,8 @@ test("operations: auth, scoped coaches, fees, leave, reports and complete backup
         "POST",
         {
           studentId: "HS004",
-          title: "Gói 12 buổi",
-          sessions: 12,
+          title: "Gói 10 buổi",
+          sessions: 10,
           fee: 1200000,
           starts: dateKey(),
           ends: dateKey(),
@@ -139,6 +151,11 @@ test("operations: auth, scoped coaches, fees, leave, reports and complete backup
       let overview = await call("/ops/overview");
       const enrollment = overview.enrollments[0];
       assert.equal(enrollment.used, 1);
+      assert.equal(enrollment.attended, 1);
+      assert.equal(enrollment.excused, 0);
+      assert.equal(enrollment.absent, 0);
+      assert.equal(enrollment.excused_allowance, 2);
+      assert.equal(overview.lessonPhotos[0].file_name, "check-in.png");
       await call(
         "/ops/payments",
         "POST",
