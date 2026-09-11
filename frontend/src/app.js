@@ -211,8 +211,17 @@ function toast(message) {
   window.toastTimer = setTimeout(() => (el.style.display = "none"), 3800);
 }
 
-function navigate(p) {
-  if (signedInUser && ["attendance", "reports", "settings"].includes(p))
+function navigate(p, recordHistory = true) {
+  const operationsPage = ["attendance", "reports", "settings"].includes(p);
+  if (recordHistory)
+    history.pushState(
+      operationsPage
+        ? { view: "operations", tab: p === "settings" ? "backup" : p }
+        : { view: "dashboard", page: p },
+      "",
+      `#${p}`,
+    );
+  if (signedInUser && operationsPage)
     return operationsScreen(
       signedInUser,
       authenticatedBoot,
@@ -1432,7 +1441,17 @@ function bindStudents() {
     });
 }
 
-async function studentProfile(id, month = dateKey().slice(0, 7)) {
+async function studentProfile(
+  id,
+  month = dateKey().slice(0, 7),
+  recordHistory = true,
+) {
+  if (recordHistory)
+    history.pushState(
+      { view: "student", id, month },
+      "",
+      `#student/${encodeURIComponent(id)}`,
+    );
   const app = document.getElementById("app");
   app.innerHTML = '<div class="empty-state">Đang tải hồ sơ học sinh…</div>';
   try {
@@ -1463,10 +1482,18 @@ async function studentProfile(id, month = dateKey().slice(0, 7)) {
       <section class="card profile-wide-card"><h2>Lịch sử điểm danh</h2><div class="table-responsive"><table><thead><tr><th>Ngày</th><th>Buổi / lớp</th><th>Trạng thái</th><th>Check-in / out</th><th>Ảnh buổi tập</th></tr></thead><tbody>${records.map((a) => { const photo = ops.lessonPhotos.find((p) => p.lesson_id === a.lesson_id); return `<tr><td>${esc(a.lesson?.date || "—")}</td><td>${esc(a.lesson?.name || "—")}<br><small>${esc(a.lesson?.start || "")} · ${esc(a.lesson?.court || "")}</small></td><td><span class="badge ${a.status === "absent" ? "out" : a.status === "excused" ? "pending" : "present"}">${esc(statusName[a.status])}</span></td><td>${a.check_in ? new Date(a.check_in).toLocaleTimeString("vi-VN") : "—"} / ${a.check_out ? new Date(a.check_out).toLocaleTimeString("vi-VN") : "—"}</td><td>${photo ? `<a class="link-action" target="_blank" href="/api/ops/lesson-photo?lessonId=${a.lesson_id}">Xem ảnh</a>` : "—"}</td></tr>`; }).join("") || '<tr><td colspan="5">Chưa có dữ liệu điểm danh.</td></tr>'}</tbody></table></div></section>
       <div class="student-profile-grid"><section class="card profile-card"><h2>Nhận xét tháng ${esc(month)}</h2>${report ? `<p><strong>Điểm mạnh</strong><br>${esc(report.strengths)}</p><p><strong>Cần cải thiện</strong><br>${esc(report.improvements)}</p><p><strong>Mục tiêu</strong><br>${esc(report.goals)}</p><span class="badge present">${esc(report.status)}</span>` : "<p>HLV chưa viết nhận xét tháng này.</p>"}</section><section class="card profile-card"><h2>Lịch sử thanh toán</h2>${payments.map((p) => `<div class="profile-payment"><div><strong>${esc(p.title)}</strong><small>${new Date(p.paid_at).toLocaleString("vi-VN")}</small></div><strong class="fee-paid">${Number(p.amount).toLocaleString("vi-VN")} đ</strong></div>`).join("") || "<p>Chưa có thanh toán.</p>"}</section></div>
     </div>`;
-    document.getElementById("student-profile-back").onclick = render;
+    document.getElementById("student-profile-back").onclick = () => history.back();
     document.getElementById("student-profile-edit").onclick = () => studentForm(id);
     document.getElementById("student-profile-check").onclick = () => check(id, !!(todayRecord(id) && !todayRecord(id).out));
-    document.getElementById("student-profile-month").onchange = (event) => studentProfile(id, event.target.value || month);
+    document.getElementById("student-profile-month").onchange = (event) => {
+      const selectedMonth = event.target.value || month;
+      history.replaceState(
+        { view: "student", id, month: selectedMonth },
+        "",
+        `#student/${encodeURIComponent(id)}`,
+      );
+      studentProfile(id, selectedMonth, false);
+    };
   } catch (error) {
     app.innerHTML = `<div class="empty-state"><p class="error-text">${esc(error.message)}</p><button class="btn" id="student-profile-retry">Quay lại</button></div>`;
     document.getElementById("student-profile-retry").onclick = render;
@@ -1513,6 +1540,8 @@ async function authenticatedBoot() {
   try {
     const user = await request("/auth/me");
     signedInUser = user;
+    if (!history.state?.view)
+      history.replaceState({ view: "dashboard", page: "home" }, "", "#home");
     if (user.role === "coach") await operationsScreen(user, authenticatedBoot);
     else await boot();
     operationsNav(user, authenticatedBoot, () =>
@@ -1522,4 +1551,20 @@ async function authenticatedBoot() {
     await loginScreen(authenticatedBoot);
   }
 }
+
+window.addEventListener("popstate", (event) => {
+  if (!signedInUser) return;
+  const state = event.state || { view: "dashboard", page: "home" };
+  if (state.view === "student") {
+    studentProfile(state.id, state.month, false);
+    return;
+  }
+  if (state.view === "operations") {
+    operationsScreen(signedInUser, () => history.back(), state.tab);
+    return;
+  }
+  page = state.page || "home";
+  query = "";
+  render();
+});
 authenticatedBoot();

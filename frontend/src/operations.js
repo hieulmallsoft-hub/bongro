@@ -75,7 +75,10 @@ export function operationsNav(user, onBack, onLogout) {
   bar.innerHTML = `<button class="btn secondary" id="open-ops">Quản lý học viện · ${esc(user.name)}</button><button class="btn secondary" id="logout">Đăng xuất</button>`;
   document.getElementById("account-actions")?.remove();
   document.body.appendChild(bar);
-  bar.querySelector("#open-ops").onclick = () => operationsScreen(user, onBack);
+  bar.querySelector("#open-ops").onclick = () => {
+    history.pushState({ view: "operations", tab: "attendance" }, "", "#attendance");
+    operationsScreen(user, () => history.back());
+  };
   bar.querySelector("#logout").onclick = async () => {
     await request("/auth/logout", { method: "POST" });
     bar.remove();
