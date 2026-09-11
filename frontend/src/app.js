@@ -197,6 +197,11 @@ const sounds = new SoundEngine();
 
 const todayRecord = (id) =>
   data.attendance.findLast((a) => a.studentId === id && a.date === dateKey());
+const latestRecord = (id) =>
+  data.attendance
+    .filter((a) => a.studentId === id)
+    .sort((a, b) => (a.date + (a.in || "")).localeCompare(b.date + (b.in || "")))
+    .at(-1);
 
 function toast(message) {
   const el = document.getElementById("toast");
@@ -646,7 +651,9 @@ function studentTable(limit = false, onlyPresent = false) {
           ${
             rows
               .map((s) => {
-                const a = todayRecord(s.id);
+                const current = todayRecord(s.id);
+                const a = current || latestRecord(s.id);
+                const isToday = a?.date === dateKey();
                 const initials = s.name
                   .split(" ")
                   .slice(-2)
@@ -672,11 +679,11 @@ function studentTable(limit = false, onlyPresent = false) {
                 </td>
                 <td>
                   <span class="badge ${a ? (a.out ? "out" : "present") : "pending"}">
-                    ${a ? (a.out ? "● Đã ra sân" : "● Đã có mặt") : "○ Chưa vào sân"}
+                    ${a ? (a.out ? "● Đã ra sân" : a.status === "late" ? "● Đi muộn" : "● Đã có mặt") + (isToday ? "" : ` · ${esc(a.date)}`) : "○ Chưa điểm danh"}
                   </span>
                 </td>
                 <td style="color: var(--text-muted); font-size: 12px;">
-                  ${a ? `<b style="color:var(--text-title)">${esc(a.in)}</b>` + (a.out ? ` → <b style="color:var(--text-title)">${esc(a.out)}</b>` : "") : "—"}
+                  ${a ? `<b style="color:var(--text-title)">${esc(a.in)}</b>` + (a.out ? ` → <b style="color:var(--text-title)">${esc(a.out)}</b>` : "") + (isToday ? "" : `<small style="display:block">Lần gần nhất</small>`) : "—"}
                 </td>
                 <td style="text-align: right;">
                   <button class="btn secondary" style="padding: 7px 14px; font-size: 11.5px;" data-student-profile="${esc(s.id)}" aria-label="Mở hồ sơ đầy đủ ${esc(s.name)}">
