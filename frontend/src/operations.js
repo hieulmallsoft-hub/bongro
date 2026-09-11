@@ -186,16 +186,16 @@ export async function operationsScreen(
       );
     if (tab === "attendance")
       content =
-        `<section class="card" style="padding:20px;margin-bottom:18px">
-          <h3>Danh sách học buổi tập</h3>
-          <label>Chọn buổi tập<select class="field" id="attendance-lesson-filter">${lessonOpts.map(([id, label]) => `<option value="${id}" ${id === defaultLesson?.id ? "selected" : ""}>${esc(label)}</option>`).join("")}</select></label>
+        `<section class="card ops-feature-card">
+          <div class="ops-section-head"><div><span class="ops-kicker">LỊCH TẬP HÔM NAY</span><h2>Danh sách học buổi tập</h2><p>Chọn buổi, điểm danh học sinh và lưu ảnh xác nhận của lớp.</p></div><span class="ops-live">● ĐANG HOẠT ĐỘNG</span></div>
+          <label class="ops-lesson-picker">Chọn buổi tập<select class="field" id="attendance-lesson-filter">${lessonOpts.map(([id, label]) => `<option value="${id}" ${id === defaultLesson?.id ? "selected" : ""}>${esc(label)}</option>`).join("")}</select></label>
           <div id="lesson-roster">${rosterTable(defaultLesson?.id)}</div>
-          <div id="lesson-photo" style="margin-top:18px"></div>
-          <form id="lesson-photo-form" class="form-grid">
+          <div class="ops-photo-panel"><div id="lesson-photo"></div>
+          <form id="lesson-photo-form" class="form-grid ops-photo-form">
             <input type="hidden" name="lessonId" value="${defaultLesson?.id || ""}">
             <label>Ảnh check-in của buổi<input class="field" name="photo" type="file" accept="image/jpeg,image/png,image/webp" required></label>
-            <button class="btn">Tải ảnh lên</button><p class="form-message" role="status"></p>
-          </form>
+            <button class="btn">📷 Tải ảnh lên</button><p class="form-message" role="status"></p>
+          </form></div>
         </section>` +
         form(
           "mark",
@@ -233,6 +233,12 @@ export async function operationsScreen(
         );
     if (tab === "fees")
       content =
+        `<div class="ops-metrics">
+          <article><span>Tổng giá trị gói</span><strong>${money(data.enrollments.reduce((sum, e) => sum + Number(e.fee), 0))}</strong><small>${data.enrollments.length} gói học</small></article>
+          <article><span>Đã thu</span><strong>${money(data.enrollments.reduce((sum, e) => sum + Number(e.paid), 0))}</strong><small>Thanh toán đã ghi nhận</small></article>
+          <article><span>Công nợ</span><strong>${money(data.enrollments.reduce((sum, e) => sum + Number(e.fee) - Number(e.paid), 0))}</strong><small>Cần thu còn lại</small></article>
+          <article><span>Buổi còn lại</span><strong>${data.enrollments.reduce((sum, e) => sum + Math.max(0, e.sessions - e.used), 0)}</strong><small>Trên tất cả gói</small></article>
+        </div>` +
         feesList(data, today()) +
         form(
           "enroll",
@@ -414,7 +420,7 @@ export async function operationsScreen(
             esc(JSON.stringify(a.detail)),
           ]),
         );
-    app.innerHTML = `<div style="max-width:1250px;margin:auto;padding:28px 24px 85px"><div style="display:flex;justify-content:space-between;gap:12px"><h1>Quản lý học viện</h1>${admin ? '<button class="btn secondary" id="back-dashboard">Về tổng quan</button>' : ""}</div><p>${esc(user.name)} · ${admin ? "Quản trị viên" : "Huấn luyện viên"}</p><div class="tabs" style="overflow:auto;margin-bottom:22px">${tabs.map(([id, title]) => `<button class="tab ${tab === id ? "active" : ""}" data-ops-tab="${id}">${title}</button>`).join("")}</div>${content}<p id="ops-message" role="status"></p></div>`;
+    app.innerHTML = `<div class="ops-page"><header class="ops-header"><div><span class="ops-kicker">HOOPSTARS CONTROL CENTER</span><h1>Quản lý học viện</h1><p>Xin chào, <strong>${esc(user.name)}</strong> · ${admin ? "Quản trị viên" : "Huấn luyện viên"}</p></div>${admin ? '<button class="btn secondary" id="back-dashboard">← Về tổng quan</button>' : ""}</header><nav class="ops-tabs">${tabs.map(([id, title]) => `<button class="ops-tab ${tab === id ? "active" : ""}" data-ops-tab="${id}">${title}</button>`).join("")}</nav><main class="ops-content">${content}<p id="ops-message" role="status"></p></main></div>`;
     const reload = () => operationsScreen(user, onBack, tab, month);
     const action = async (path, body) => {
       await request(path, { method: "POST", body });
