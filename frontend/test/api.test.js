@@ -47,6 +47,16 @@ test('student can be removed from a class without deleting the profile', async (
   assert.deepEqual(await api.unassignStudent('HS001'), { success: true });
 });
 
+test('an existing unassigned student can be added to a class', async () => {
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, '/api/students/HS001/assign');
+    assert.equal(options.method, 'POST');
+    assert.deepEqual(JSON.parse(options.body), { className: 'U12 Cơ bản' });
+    return new Response(JSON.stringify({ success: true }), { status: 201 });
+  };
+  assert.deepEqual(await api.assignStudent('HS001', 'U12 Cơ bản'), { success: true });
+});
+
 test('check-in sends only the student ID; server owns the attendance time', async () => {
   globalThis.fetch = async (url, options) => {
     assert.equal(url, '/api/attendance/check-in');

@@ -104,6 +104,29 @@ export class StudentsService {
       return { success: true };
     });
   }
+  assign(id: string, rawClassName: unknown, user: { username: string }) {
+    if (!/^HS\d{3,10}$/.test(id))
+      throw new NotFoundException("Không tìm thấy học sinh.");
+    const className = typeof rawClassName === "string" ? rawClassName.trim() : "";
+    if (!className || className.length > 60 || className === "Chưa xếp lớp")
+      throw new BadRequestException("Lớp học không hợp lệ.");
+    return this.storage.withTransaction(async (c) => {
+      const student = (
+        await c.query("SELECT name,class_name FROM students WHERE id=$1", [id])
+      ).rows[0];
+      if (!student) throw new NotFoundException("Không tìm thấy học sinh.");
+      if (student.class_name !== "Chưa xếp lớp")
+        throw new BadRequestException(`Học sinh đang thuộc lớp ${student.class_name}. Hãy dùng chức năng chuyển lớp.`);
+      if (!(await c.query("SELECT 1 FROM lessons WHERE name=$1 LIMIT 1", [className])).rowCount)
+        throw new BadRequestException("Lớp chưa tồn tại hoặc chưa có lịch tập.");
+      await c.query("UPDATE students SET class_name=$1 WHERE id=$2", [className, id]);
+      await c.query(
+        "INSERT INTO audit_log(actor,action,detail) VALUES($1,'assign_student',$2)",
+        [user.username, JSON.stringify({ id, name: student.name, toClass: className })],
+      );
+      return { success: true };
+    });
+  }
   remove(id: string, user: { username: string; role: string }) {
     if (!/^HS\d{3,10}$/.test(id))
       throw new NotFoundException("Không tìm thấy học sinh.");

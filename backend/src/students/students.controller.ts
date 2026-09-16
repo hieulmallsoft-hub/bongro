@@ -20,6 +20,13 @@ export class StudentsController {
   @Post(":id/unassign") unassign(@Param("id") id: string, @Req() req: any) {
     return this.students.unassign(id, req.user);
   }
+  @Post(":id/assign") assign(
+    @Param("id") id: string,
+    @Body() body: { className?: string },
+    @Req() req: any,
+  ) {
+    return this.students.assign(id, body.className, req.user);
+  }
   @Delete(":id") remove(@Param("id") id: string, @Req() req: any) {
     return this.students.remove(id, req.user);
   }

@@ -1507,6 +1507,7 @@ async function classDetail(className, recordHistory = true) {
   try {
     const ops = await request("/ops/overview");
     const students = ops.students.filter((student) => student.group === className);
+    const unassignedStudents = ops.students.filter((student) => student.group === "Chưa xếp lớp");
     const lessons = ops.lessons
       .filter((lesson) => lesson.name === className)
       .sort((a, b) => `${a.date} ${a.start}`.localeCompare(`${b.date} ${b.start}`));
@@ -1533,7 +1534,7 @@ async function classDetail(className, recordHistory = true) {
     const absentCount = latestAttendance.filter((row) => row?.status === "absent").length;
     const excusedCount = latestAttendance.filter((row) => row?.status === "excused").length;
     app.innerHTML = `<div class="class-detail-page">
-      <div class="student-profile-top"><button class="btn secondary" id="class-detail-back">← Danh sách lớp</button><div><button class="btn danger" id="class-delete">Xóa lớp</button> <button class="btn" id="class-add-student">+ Thêm học sinh vào lớp</button></div></div>
+      <div class="student-profile-top"><button class="btn secondary" id="class-detail-back">← Danh sách lớp</button><div><button class="btn danger" id="class-delete">Xóa lớp</button> <button class="btn secondary" id="class-create-student">+ Tạo học sinh mới</button> <button class="btn" id="class-add-student">+ Thêm học sinh có sẵn</button></div></div>
       <section class="student-profile-hero class-detail-hero"><div class="student-profile-avatar">🏀</div><div><span class="ops-kicker">CHI TIẾT LỚP HỌC</span><h1>${esc(className)}</h1><p>${students.length} học sinh · ${upcoming.length} buổi sắp tới</p></div></section>
       <div class="student-profile-metrics class-detail-metrics"><article><span>Sĩ số hiện tại</span><strong>${students.length}</strong></article><article><span>Có mặt buổi gần nhất</span><strong>${presentCount}</strong></article><article><span>Nghỉ phép / vắng</span><strong>${excusedCount} / ${absentCount}</strong></article><article><span>Đã đóng đủ học phí</span><strong>${paidCount}/${students.length}</strong></article></div>
       <div class="class-admin-grid"><section class="card class-admin-summary"><span class="ops-kicker">VẬN HÀNH LỚP</span><h2>${upcoming.length} buổi sắp tới</h2><p>${latestLesson ? `Buổi gần nhất ${esc(latestLesson.date)} lúc ${esc(latestLesson.start)}.` : "Chưa có buổi tập đã diễn ra."}</p></section><section class="card class-admin-summary"><span class="ops-kicker">TÀI CHÍNH</span><h2>${students.length - paidCount} học sinh cần kiểm tra</h2><p>Bao gồm học sinh còn công nợ hoặc chưa đăng ký gói.</p></section></div>
@@ -1546,8 +1547,25 @@ async function classDetail(className, recordHistory = true) {
       <section class="card profile-wide-card"><h2>Lịch tập sắp tới</h2><div class="class-upcoming-list">${upcoming.slice(0, 8).map((lesson) => `<article><strong>${esc(lesson.date)} · ${esc(lesson.start)}–${esc(lesson.end)}</strong><span>${esc(lesson.court)} · HLV ${esc(lesson.coach)}</span></article>`).join("") || "<p>Chưa có lịch tập sắp tới.</p>"}</div></section>
     </div>`;
     document.getElementById("class-detail-back").onclick = () => history.back();
-    document.getElementById("class-add-student").onclick = async () => {
-      await studentForm(undefined, className);
+    document.getElementById("class-create-student").onclick = () => studentForm(undefined, className);
+    document.getElementById("class-add-student").onclick = () => {
+      if (!unassignedStudents.length) {
+        toast("Không có học sinh nào đang ở trạng thái Chưa xếp lớp.");
+        return;
+      }
+      modal(
+        `Thêm học sinh có sẵn vào ${className}`,
+        `<div class="form-grid"><label>Chọn học sinh<select class="input-field" name="studentId" required><option value="">Chọn học sinh…</option>${unassignedStudents.map((student) => `<option value="${esc(student.id)}">${esc(student.name)} · ${esc(student.id)} · ${esc(student.phone)}</option>`).join("")}</select></label></div><p class="profile-form-note">Hồ sơ, phụ huynh, học phí và lịch sử của học sinh được giữ nguyên.</p>`,
+        async (formData, dialog) => {
+          const studentId = String(formData.get("studentId") || "");
+          const student = unassignedStudents.find((row) => row.id === studentId);
+          await api.assignStudent(studentId, className);
+          dialog.close();
+          data = await api.dashboard();
+          await classDetail(className, false);
+          toast(`Đã thêm ${student.name} vào lớp ${className}.`);
+        },
+      );
     };
     document.getElementById("class-delete").onclick = async () => {
       if (students.length) {

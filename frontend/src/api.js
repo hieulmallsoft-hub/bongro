@@ -41,6 +41,11 @@ export const api = {
     request(`/students/${encodeURIComponent(id)}`, { method: "DELETE" }),
   unassignStudent: (id) =>
     request(`/students/${encodeURIComponent(id)}/unassign`, { method: "POST" }),
+  assignStudent: (id, className) =>
+    request(`/students/${encodeURIComponent(id)}/assign`, {
+      method: "POST",
+      body: { className },
+    }),
   addLesson: (body) => request("/lessons", { method: "POST", body }),
   check: (studentId, out) =>
     request(`/attendance/${out ? "check-out" : "check-in"}`, {

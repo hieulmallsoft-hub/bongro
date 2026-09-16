@@ -63,6 +63,7 @@ test("operations: auth, scoped coaches, fees, leave, reports and complete backup
         await call("/students", "GET", undefined, 403, coach);
         await call("/students/HS004", "DELETE", undefined, 403, coach);
         await call("/students/HS004/unassign", "POST", {}, 403, coach);
+        await call("/students/HS004/assign", "POST", { className: "U12 Cơ bản" }, 403, coach);
         await call("/ops/classes/delete", "POST", { name: "U12 Cơ bản" }, 403, coach);
         await call(
           "/ops/payments",
@@ -478,6 +479,11 @@ test("operations: auth, scoped coaches, fees, leave, reports and complete backup
       assert.ok(overview.enrollments.some((e) => e.student_id === "HS004"));
       assert.ok(overview.attendance.some((a) => a.student_id === "HS004"));
       await call("/students/HS004/unassign", "POST", {}, 400);
+      await call("/students/HS004/assign", "POST", { className: "Lớp không tồn tại" }, 400);
+      await call("/students/HS004/assign", "POST", { className: "U12 Cơ bản" }, 201);
+      const assigned = await call("/ops/overview");
+      assert.equal(assigned.students.find((s) => s.id === "HS004").group, "U12 Cơ bản");
+      await call("/students/HS004/assign", "POST", { className: "U12 Cơ bản" }, 400);
     });
     await t.test(
       "password reset and change revoke old sessions and enforce permissions",
