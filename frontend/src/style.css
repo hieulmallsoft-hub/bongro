@@ -2253,6 +2253,8 @@ footer {
 .profile-wide-card { margin-bottom: 16px; }
 .profile-payment { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 12px 0; border-bottom: 1px solid #e6ebf2; }
 .profile-payment small { display: block; color: var(--text-muted); margin-top: 3px; }
+.profile-section-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 14px; }
+.profile-section-head h2 { margin: 0; }
 .student-row-link { cursor: pointer; }
 .student-row-link:hover { background: #fff7f1; }
 .student-row-link:focus { outline: 2px solid var(--orange-primary); outline-offset: -2px; }

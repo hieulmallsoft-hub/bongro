@@ -169,6 +169,21 @@ test("operations: auth, scoped coaches, fees, leave, reports and complete backup
         "POST",
         {
           studentId: "HS004",
+          title: "Gói sai tiền",
+          sessions: 10,
+          fee: 100000,
+          initialPaid: 200000,
+          starts: dateKey(),
+          ends: dateKey(),
+          due: dateKey(),
+        },
+        400,
+      );
+      await call(
+        "/ops/enrollments",
+        "POST",
+        {
+          studentId: "HS004",
           title: "Gói 10 buổi",
           sessions: 10,
           fee: 1200000,

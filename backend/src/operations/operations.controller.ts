@@ -353,9 +353,12 @@ export class OperationsController {
       fee = number(b.fee, 0),
       starts = date(b.starts),
       ends = date(b.ends),
-      due = date(b.due);
+      due = date(b.due),
+      initialPaid = b.initialPaid === undefined || b.initialPaid === "" ? 0 : number(b.initialPaid, 0);
     if (![10, 20, 30].includes(sessions))
       throw new BadRequestException("Chỉ hỗ trợ gói 10, 20 hoặc 30 buổi.");
+    if (initialPaid > fee)
+      throw new BadRequestException("Số tiền đã đóng không được vượt quá học phí.");
     if (ends < starts)
       throw new BadRequestException("Ngày kết thúc trước ngày bắt đầu.");
     return this.storage.withTransaction(async (c) => {
@@ -368,12 +371,17 @@ export class OperationsController {
         ).rowCount
       )
         throw new BadRequestException("Gói học bị chồng thời hạn.");
-      await c.query(
-        "INSERT INTO enrollments(student_id,title,sessions,fee,starts,ends,due) VALUES($1,$2,$3,$4,$5,$6,$7)",
+      const enrollment = await c.query(
+        "INSERT INTO enrollments(student_id,title,sessions,fee,starts,ends,due) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id",
         [studentId, title, sessions, fee, starts, ends, due],
       );
-      await audit(c, req.user, "create_enrollment", { studentId, title, fee });
-      return { success: true };
+      if (initialPaid > 0)
+        await c.query(
+          "INSERT INTO payments(enrollment_id,amount,note) VALUES($1,$2,$3)",
+          [enrollment.rows[0].id, initialPaid, "Thanh toán khi đăng ký gói"],
+        );
+      await audit(c, req.user, "create_enrollment", { studentId, title, fee, initialPaid });
+      return { success: true, id: enrollment.rows[0].id };
     });
   }
   @Post("enrollments/update") updateEnrollment(@Req() req: any, @Body() b: any) {

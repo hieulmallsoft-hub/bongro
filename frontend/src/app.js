@@ -1511,7 +1511,7 @@ async function studentProfile(
       <div class="student-profile-metrics"><article><span>Phải đóng</span><strong>${Number(fee.total).toLocaleString("vi-VN")} đ</strong></article><article><span>Đã đóng</span><strong class="fee-paid">${Number(fee.paid).toLocaleString("vi-VN")} đ</strong></article><article><span>Còn thiếu</span><strong class="fee-owed">${Number(fee.owed).toLocaleString("vi-VN")} đ</strong></article><article><span>Buổi còn lại</span><strong>${remaining}</strong></article><article><span>Đã học</span><strong>${attended}</strong></article><article><span>Nghỉ phép / không phép</span><strong>${excused} / ${absent}</strong></article></div>
       <div class="student-profile-grid"><section class="card profile-card"><h2>Thông tin cá nhân</h2><dl><dt>Ngày sinh</dt><dd>${esc(student.dob)}</dd><dt>Lớp đang học</dt><dd>${esc(student.group)}</dd><dt>Liên hệ</dt><dd>${esc(student.phone)}</dd><dt>Trạng thái học phí</dt><dd>${esc(fee.status)}${fee.overdue ? " · Quá hạn" : ""}</dd></dl></section>
       <section class="card profile-card"><h2>Phụ huynh và người đón</h2>${guardian ? `<dl><dt>Phụ huynh</dt><dd>${esc(guardian.name)} · ${esc(guardian.relationship)}</dd><dt>Điện thoại</dt><dd>${esc(guardian.phone)}</dd><dt>Email</dt><dd>${esc(guardian.email || "Chưa cập nhật")}</dd><dt>Được phép đón</dt><dd>${esc(guardian.authorized_pickup || "Chưa cập nhật")}</dd></dl>` : "<p>Chưa cập nhật hồ sơ phụ huynh.</p>"}</section></div>
-      <section class="card profile-wide-card"><h2>Gói học và học phí</h2><div class="table-responsive"><table><thead><tr><th>Gói học</th><th>Thời hạn</th><th>Số buổi</th><th>Đã học</th><th>Nghỉ phép</th><th>Không phép</th><th>Còn lại</th><th>Đã đóng / còn thiếu</th></tr></thead><tbody>${fee.rows.map((e) => `<tr><td><strong>${esc(e.title)}</strong></td><td>${esc(e.starts)} → ${esc(e.ends)}</td><td>${e.sessions}</td><td>${e.attended}</td><td>${e.excused}/${e.excused_allowance}</td><td>${e.absent}</td><td><strong>${Math.max(0, e.sessions - e.used)}</strong></td><td><span class="fee-paid">${Number(e.paid).toLocaleString("vi-VN")} đ</span><br><span class="fee-owed">${Number(e.fee - e.paid).toLocaleString("vi-VN")} đ</span></td></tr>`).join("") || '<tr><td colspan="8">Chưa đăng ký gói học.</td></tr>'}</tbody></table></div></section>
+      <section class="card profile-wide-card"><div class="profile-section-head"><h2>Gói học và học phí</h2><button class="btn" id="student-add-package">+ Đăng ký gói / nhập học phí</button></div><div class="table-responsive"><table><thead><tr><th>Gói học</th><th>Thời hạn</th><th>Số buổi</th><th>Đã học</th><th>Nghỉ phép</th><th>Không phép</th><th>Còn lại</th><th>Phải đóng / đã đóng / còn thiếu</th><th></th></tr></thead><tbody>${fee.rows.map((e) => `<tr><td><strong>${esc(e.title)}</strong></td><td>${esc(e.starts)} → ${esc(e.ends)}</td><td>${e.sessions}</td><td>${e.attended}</td><td>${e.excused}/${e.excused_allowance}</td><td>${e.absent}</td><td><strong>${Math.max(0, e.sessions - e.used)}</strong></td><td>${Number(e.fee).toLocaleString("vi-VN")} đ<br><span class="fee-paid">${Number(e.paid).toLocaleString("vi-VN")} đ</span><br><span class="fee-owed">${Number(e.fee - e.paid).toLocaleString("vi-VN")} đ</span></td><td>${Number(e.fee) > Number(e.paid) ? `<button class="btn secondary" data-profile-pay="${e.id}">Thu thêm</button>` : '<span class="badge present">Đã đủ</span>'}</td></tr>`).join("") || '<tr><td colspan="9">Chưa đăng ký gói học.</td></tr>'}</tbody></table></div></section>
       <section class="card profile-wide-card"><h2>Lịch sử điểm danh</h2><div class="table-responsive"><table><thead><tr><th>Ngày</th><th>Buổi / lớp</th><th>Trạng thái</th><th>Check-in / out</th><th>Ảnh buổi tập</th></tr></thead><tbody>${records.map((a) => { const photo = ops.lessonPhotos.find((p) => p.lesson_id === a.lesson_id); return `<tr><td>${esc(a.lesson?.date || "—")}</td><td>${esc(a.lesson?.name || "—")}<br><small>${esc(a.lesson?.start || "")} · ${esc(a.lesson?.court || "")}</small></td><td><span class="badge ${a.status === "absent" ? "out" : a.status === "excused" ? "pending" : "present"}">${esc(statusName[a.status])}</span></td><td>${a.check_in ? new Date(a.check_in).toLocaleTimeString("vi-VN") : "—"} / ${a.check_out ? new Date(a.check_out).toLocaleTimeString("vi-VN") : "—"}</td><td>${photo ? `<a class="link-action" target="_blank" href="/api/ops/lesson-photo?lessonId=${a.lesson_id}">Xem ảnh</a>` : "—"}</td></tr>`; }).join("") || '<tr><td colspan="5">Chưa có dữ liệu điểm danh.</td></tr>'}</tbody></table></div></section>
       <div class="student-profile-grid"><section class="card profile-card"><h2>Nhận xét tháng ${esc(month)}</h2>${report ? `<p><strong>Điểm mạnh</strong><br>${esc(report.strengths)}</p><p><strong>Cần cải thiện</strong><br>${esc(report.improvements)}</p><p><strong>Mục tiêu</strong><br>${esc(report.goals)}</p><span class="badge present">${esc(report.status)}</span>` : "<p>HLV chưa viết nhận xét tháng này.</p>"}</section><section class="card profile-card"><h2>Lịch sử thanh toán</h2>${payments.map((p) => `<div class="profile-payment"><div><strong>${esc(p.title)}</strong><small>${new Date(p.paid_at).toLocaleString("vi-VN")}</small></div><strong class="fee-paid">${Number(p.amount).toLocaleString("vi-VN")} đ</strong></div>`).join("") || "<p>Chưa có thanh toán.</p>"}</section></div>
     </div>`;
@@ -1521,6 +1521,43 @@ async function studentProfile(
       history.pushState({ view: "operations", tab: "fees" }, "", "#fees");
       operationsScreen(ops.user, () => history.back(), "fees");
     };
+    const reloadProfile = () => studentProfile(id, month, false);
+    document.getElementById("student-add-package").onclick = () => modal(
+      `Đăng ký gói học cho ${student.name}`,
+      `<div class="form-grid">
+        <label>Tên gói<input class="input-field" name="title" value="Gói 10 buổi" required maxlength="100"></label>
+        <label>Số buổi<select class="input-field" name="sessions" required><option value="10">10 buổi · nghỉ phép 2</option><option value="20">20 buổi · nghỉ phép 4</option><option value="30">30 buổi · nghỉ phép 6</option></select></label>
+        <label>Tổng học phí phải đóng<input class="input-field" type="number" name="fee" min="0" required></label>
+        <label>Đã đóng ban đầu<input class="input-field" type="number" name="initialPaid" min="0" value="0" required></label>
+        <label>Ngày bắt đầu<input class="input-field" type="date" name="starts" value="${dateKey()}" required></label>
+        <label>Ngày kết thúc gói<input class="input-field" type="date" name="ends" required></label>
+        <label>Hạn đóng tiền<input class="input-field" type="date" name="due" value="${dateKey()}" required></label>
+      </div>`,
+      async (formData, dialog) => {
+        const values = Object.fromEntries(formData);
+        await request("/ops/enrollments", { method: "POST", body: { ...values, studentId: id } });
+        dialog.close();
+        await reloadProfile();
+        toast("Đã tạo gói học và ghi nhận số tiền đã đóng.");
+      },
+    );
+    document.querySelectorAll("[data-profile-pay]").forEach((button) => {
+      button.onclick = () => {
+        const enrollment = fee.rows.find((row) => row.id === Number(button.dataset.profilePay));
+        const owed = Number(enrollment.fee) - Number(enrollment.paid);
+        modal(
+          `Thu học phí · ${student.name}`,
+          `<p><strong>${esc(enrollment.title)}</strong><br>Còn thiếu: <span class="fee-owed">${owed.toLocaleString("vi-VN")} đ</span></p><div class="form-grid"><label>Số tiền đóng lần này<input class="input-field" type="number" name="amount" min="1" max="${owed}" value="${owed}" required></label><label>Ghi chú<input class="input-field" name="note" maxlength="500" placeholder="Tiền mặt, chuyển khoản…"></label></div>`,
+          async (formData, dialog) => {
+            const values = Object.fromEntries(formData);
+            await request("/ops/payments", { method: "POST", body: { enrollmentId: enrollment.id, ...values } });
+            dialog.close();
+            await reloadProfile();
+            toast("Đã ghi nhận khoản học phí.");
+          },
+        );
+      };
+    });
     document.getElementById("student-profile-delete").onclick = async () => {
       const confirmation = prompt(`Nhập chính xác mã ${student.id} để xác nhận xóa ${student.name}:`);
       if (confirmation !== student.id) return;
