@@ -209,6 +209,34 @@ export class OperationsController {
       return { success: true };
     });
   }
+  @Post("classes/delete") deleteClass(@Req() req: any, @Body() b: any) {
+    admin(req.user);
+    const name = text(b.name, 60);
+    return this.storage.withTransaction(async (c) => {
+      const lessons = await c.query("SELECT id FROM lessons WHERE name=$1", [name]);
+      if (!lessons.rowCount)
+        throw new NotFoundException("Không tìm thấy lớp học.");
+      const studentCount = Number((await c.query(
+        "SELECT count(*)::int AS count FROM students WHERE class_name=$1",
+        [name],
+      )).rows[0].count);
+      if (studentCount > 0)
+        throw new BadRequestException(`Lớp còn ${studentCount} học sinh. Hãy chuyển hoặc bỏ học sinh khỏi lớp trước.`);
+      const historyCount = Number((await c.query(
+        `SELECT
+          (SELECT count(*) FROM session_attendance a JOIN lessons l ON l.id=a.lesson_id WHERE l.name=$1) +
+          (SELECT count(*) FROM leave_requests r WHERE
+            r.lesson_id IN (SELECT id FROM lessons WHERE name=$1) OR
+            r.makeup_lesson_id IN (SELECT id FROM lessons WHERE name=$1)) AS count`,
+        [name],
+      )).rows[0].count);
+      if (historyCount > 0)
+        throw new BadRequestException("Lớp đã có lịch sử điểm danh hoặc nghỉ phép nên không thể xóa. Hãy giữ lớp để bảo toàn báo cáo.");
+      const deleted = await c.query("DELETE FROM lessons WHERE name=$1 RETURNING id", [name]);
+      await audit(c, req.user, "delete_class", { name, deletedLessons: deleted.rowCount });
+      return { success: true, deletedLessons: deleted.rowCount };
+    });
+  }
   @Post("users") async user(@Req() req: any, @Body() b: any) {
     admin(req.user);
     const username = text(b.username, 60);

@@ -63,6 +63,7 @@ test("operations: auth, scoped coaches, fees, leave, reports and complete backup
         await call("/students", "GET", undefined, 403, coach);
         await call("/students/HS004", "DELETE", undefined, 403, coach);
         await call("/students/HS004/unassign", "POST", {}, 403, coach);
+        await call("/ops/classes/delete", "POST", { name: "U12 Cơ bản" }, 403, coach);
         await call(
           "/ops/payments",
           "POST",
@@ -454,6 +455,10 @@ test("operations: auth, scoped coaches, fees, leave, reports and complete backup
         await call("/lessons/recurring", "POST", baseLesson, 409);
         assert.equal((await call("/lessons")).length, before.length);
         await call("/lessons/recurring", "POST", baseLesson, 403, coach);
+        await call("/ops/classes/delete", "POST", { name: "U12 Cơ bản" }, 400);
+        await call("/ops/classes/delete", "POST", { name: "Lớp lặp" }, 201);
+        assert.equal((await call("/lessons")).some((lesson) => lesson.name === "Lớp lặp"), false);
+        await call("/ops/classes/delete", "POST", { name: "Lớp lặp" }, 404);
       },
     );
     await t.test("dashboard uses session attendance only", async () => {

@@ -1533,7 +1533,7 @@ async function classDetail(className, recordHistory = true) {
     const absentCount = latestAttendance.filter((row) => row?.status === "absent").length;
     const excusedCount = latestAttendance.filter((row) => row?.status === "excused").length;
     app.innerHTML = `<div class="class-detail-page">
-      <div class="student-profile-top"><button class="btn secondary" id="class-detail-back">← Danh sách lớp</button><button class="btn" id="class-add-student">+ Thêm học sinh vào lớp</button></div>
+      <div class="student-profile-top"><button class="btn secondary" id="class-detail-back">← Danh sách lớp</button><div><button class="btn danger" id="class-delete">Xóa lớp</button> <button class="btn" id="class-add-student">+ Thêm học sinh vào lớp</button></div></div>
       <section class="student-profile-hero class-detail-hero"><div class="student-profile-avatar">🏀</div><div><span class="ops-kicker">CHI TIẾT LỚP HỌC</span><h1>${esc(className)}</h1><p>${students.length} học sinh · ${upcoming.length} buổi sắp tới</p></div></section>
       <div class="student-profile-metrics class-detail-metrics"><article><span>Sĩ số hiện tại</span><strong>${students.length}</strong></article><article><span>Có mặt buổi gần nhất</span><strong>${presentCount}</strong></article><article><span>Nghỉ phép / vắng</span><strong>${excusedCount} / ${absentCount}</strong></article><article><span>Đã đóng đủ học phí</span><strong>${paidCount}/${students.length}</strong></article></div>
       <div class="class-admin-grid"><section class="card class-admin-summary"><span class="ops-kicker">VẬN HÀNH LỚP</span><h2>${upcoming.length} buổi sắp tới</h2><p>${latestLesson ? `Buổi gần nhất ${esc(latestLesson.date)} lúc ${esc(latestLesson.start)}.` : "Chưa có buổi tập đã diễn ra."}</p></section><section class="card class-admin-summary"><span class="ops-kicker">TÀI CHÍNH</span><h2>${students.length - paidCount} học sinh cần kiểm tra</h2><p>Bao gồm học sinh còn công nợ hoặc chưa đăng ký gói.</p></section></div>
@@ -1548,6 +1548,25 @@ async function classDetail(className, recordHistory = true) {
     document.getElementById("class-detail-back").onclick = () => history.back();
     document.getElementById("class-add-student").onclick = async () => {
       await studentForm(undefined, className);
+    };
+    document.getElementById("class-delete").onclick = async () => {
+      if (students.length) {
+        toast(`Lớp còn ${students.length} học sinh. Hãy chuyển hoặc bỏ khỏi lớp trước.`);
+        return;
+      }
+      const confirmation = prompt(`Nhập chính xác tên lớp “${className}” để xác nhận xóa:`);
+      if (confirmation !== className) return;
+      if (!confirm("Xóa lớp và toàn bộ lịch tập chưa có lịch sử của lớp này?")) return;
+      try {
+        await request("/ops/classes/delete", { method: "POST", body: { name: className } });
+        data = await api.dashboard();
+        page = "classes";
+        history.replaceState({ view: "dashboard", page: "classes" }, "", "#classes");
+        render();
+        toast(`Đã xóa lớp ${className}.`);
+      } catch (error) {
+        toast(error.message);
+      }
     };
     document.querySelectorAll("[data-class-student]").forEach((element) => {
       element.onclick = (event) => {
