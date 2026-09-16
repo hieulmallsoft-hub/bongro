@@ -38,6 +38,15 @@ test('complete student profile is saved atomically', async () => {
   );
 });
 
+test('student can be removed from a class without deleting the profile', async () => {
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, '/api/students/HS001/unassign');
+    assert.equal(options.method, 'POST');
+    return new Response(JSON.stringify({ success: true }), { status: 201 });
+  };
+  assert.deepEqual(await api.unassignStudent('HS001'), { success: true });
+});
+
 test('check-in sends only the student ID; server owns the attendance time', async () => {
   globalThis.fetch = async (url, options) => {
     assert.equal(url, '/api/attendance/check-in');

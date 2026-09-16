@@ -62,6 +62,7 @@ test("operations: auth, scoped coaches, fees, leave, reports and complete backup
       async () => {
         await call("/students", "GET", undefined, 403, coach);
         await call("/students/HS004", "DELETE", undefined, 403, coach);
+        await call("/students/HS004/unassign", "POST", {}, 403, coach);
         await call(
           "/ops/payments",
           "POST",
@@ -424,6 +425,15 @@ test("operations: auth, scoped coaches, fees, leave, reports and complete backup
           (a) => a.lessonId && ["present", "late"].includes(a.status),
         ),
       );
+    });
+    await t.test("unassigning a student preserves the profile and history", async () => {
+      await call("/students/HS004/unassign", "POST", {}, 201);
+      const overview = await call("/ops/overview");
+      assert.equal(overview.students.find((s) => s.id === "HS004").group, "Chưa xếp lớp");
+      assert.ok(overview.guardians.some((g) => g.student_id === "HS004"));
+      assert.ok(overview.enrollments.some((e) => e.student_id === "HS004"));
+      assert.ok(overview.attendance.some((a) => a.student_id === "HS004"));
+      await call("/students/HS004/unassign", "POST", {}, 400);
     });
     await t.test(
       "password reset and change revoke old sessions and enforce permissions",

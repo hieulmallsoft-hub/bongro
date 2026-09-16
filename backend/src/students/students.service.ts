@@ -30,6 +30,8 @@ export class StudentsService {
   }
   saveProfile(dto: StudentProfileDto, user: { username: string }) {
     validateStudent(dto);
+    if (dto.group === "Chưa xếp lớp")
+      throw new BadRequestException("Hãy chọn một lớp đang hoạt động.");
     const guardianName = dto.guardianName?.trim() || "";
     const guardianPhone = dto.guardianPhone?.trim() || "";
     const guardianEmail = dto.guardianEmail?.trim() || "";
@@ -82,6 +84,24 @@ export class StudentsService {
         [user.username, before ? "update_student_profile" : "create_student_profile", JSON.stringify({ id, before, className: dto.group })],
       );
       return { id, name: dto.name, dob: dto.dob, group: dto.group, phone: dto.phone };
+    });
+  }
+  unassign(id: string, user: { username: string }) {
+    if (!/^HS\d{3,10}$/.test(id))
+      throw new NotFoundException("Không tìm thấy học sinh.");
+    return this.storage.withTransaction(async (c) => {
+      const student = (
+        await c.query("SELECT name,class_name FROM students WHERE id=$1", [id])
+      ).rows[0];
+      if (!student) throw new NotFoundException("Không tìm thấy học sinh.");
+      if (student.class_name === "Chưa xếp lớp")
+        throw new BadRequestException("Học sinh hiện chưa thuộc lớp nào.");
+      await c.query("UPDATE students SET class_name='Chưa xếp lớp' WHERE id=$1", [id]);
+      await c.query(
+        "INSERT INTO audit_log(actor,action,detail) VALUES($1,'unassign_student',$2)",
+        [user.username, JSON.stringify({ id, name: student.name, fromClass: student.class_name })],
+      );
+      return { success: true };
     });
   }
   remove(id: string, user: { username: string; role: string }) {

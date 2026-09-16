@@ -939,7 +939,7 @@ function pageContent() {
         ...data.students.map((s) => s.group),
         ...data.lessons.map((l) => l.name),
       ]),
-    ];
+    ].filter((name) => name !== "Chưa xếp lớp");
 
     return `
       <section class="card">
@@ -1131,7 +1131,7 @@ async function studentForm(id, defaultClass = "") {
   const classes = [...new Set([
     ...ops.lessons.map((lesson) => lesson.name),
     ...ops.students.map((student) => student.group),
-  ])].filter(Boolean).sort();
+  ])].filter((name) => name && name !== "Chưa xếp lớp").sort();
   if (!classes.length) {
     toast("Chưa có lớp. Hãy tạo lịch tập cho lớp trước khi thêm học sinh.");
     return;
@@ -1520,16 +1520,21 @@ async function classDetail(className, recordHistory = true) {
       const summary = feeSummary(student, ops.enrollments || [], dateKey());
       return summary.rows.length && summary.owed === 0;
     }).length;
+    const latestAttendance = students.map((student) => attendanceFor(student.id));
+    const presentCount = latestAttendance.filter((row) => row && ["present", "late"].includes(row.status)).length;
+    const absentCount = latestAttendance.filter((row) => row?.status === "absent").length;
+    const excusedCount = latestAttendance.filter((row) => row?.status === "excused").length;
     app.innerHTML = `<div class="class-detail-page">
       <div class="student-profile-top"><button class="btn secondary" id="class-detail-back">← Danh sách lớp</button><button class="btn" id="class-add-student">+ Thêm học sinh vào lớp</button></div>
       <section class="student-profile-hero class-detail-hero"><div class="student-profile-avatar">🏀</div><div><span class="ops-kicker">CHI TIẾT LỚP HỌC</span><h1>${esc(className)}</h1><p>${students.length} học sinh · ${upcoming.length} buổi sắp tới</p></div></section>
-      <div class="student-profile-metrics class-detail-metrics"><article><span>Sĩ số</span><strong>${students.length}</strong></article><article><span>Đã đóng đủ học phí</span><strong>${paidCount}</strong></article><article><span>Còn công nợ / chưa có gói</span><strong>${students.length - paidCount}</strong></article><article><span>Buổi tập sắp tới</span><strong>${upcoming.length}</strong></article></div>
-      <section class="card profile-wide-card"><div class="profile-section-head"><div><h2>Danh sách học sinh</h2><p>${latestLesson ? `Điểm danh gần nhất: ${esc(latestLesson.date)} · ${esc(latestLesson.start)}` : "Lớp chưa có buổi tập đã diễn ra."}</p></div></div><div class="table-responsive"><table><thead><tr><th>Học sinh</th><th>Mã học viên</th><th>Liên hệ</th><th>Điểm danh gần nhất</th><th>Gói / buổi còn lại</th><th>Học phí</th><th></th></tr></thead><tbody>${students.map((student) => {
+      <div class="student-profile-metrics class-detail-metrics"><article><span>Sĩ số hiện tại</span><strong>${students.length}</strong></article><article><span>Có mặt buổi gần nhất</span><strong>${presentCount}</strong></article><article><span>Nghỉ phép / vắng</span><strong>${excusedCount} / ${absentCount}</strong></article><article><span>Đã đóng đủ học phí</span><strong>${paidCount}/${students.length}</strong></article></div>
+      <div class="class-admin-grid"><section class="card class-admin-summary"><span class="ops-kicker">VẬN HÀNH LỚP</span><h2>${upcoming.length} buổi sắp tới</h2><p>${latestLesson ? `Buổi gần nhất ${esc(latestLesson.date)} lúc ${esc(latestLesson.start)}.` : "Chưa có buổi tập đã diễn ra."}</p></section><section class="card class-admin-summary"><span class="ops-kicker">TÀI CHÍNH</span><h2>${students.length - paidCount} học sinh cần kiểm tra</h2><p>Bao gồm học sinh còn công nợ hoặc chưa đăng ký gói.</p></section></div>
+      <section class="card profile-wide-card"><div class="profile-section-head"><div><h2>Thành viên trong lớp</h2><p>Chuyển lớp hoặc bỏ khỏi lớp không làm mất hồ sơ và lịch sử.</p></div></div><div class="table-responsive"><table><thead><tr><th>Học sinh</th><th>Liên hệ</th><th>Buổi gần nhất</th><th>Gói học</th><th>Học phí</th><th>Quản lý</th></tr></thead><tbody>${students.map((student) => {
         const attendance = attendanceFor(student.id);
         const summary = feeSummary(student, ops.enrollments || [], dateKey());
         const remaining = summary.rows.reduce((sum, row) => sum + Math.max(0, Number(row.sessions) - Number(row.used)), 0);
-        return `<tr class="student-row-link" data-class-student="${esc(student.id)}" tabindex="0"><td><strong>${esc(student.name)}</strong></td><td>${esc(student.id)}</td><td>${esc(student.phone)}</td><td>${attendance ? `<span class="badge ${attendance.status === "absent" ? "out" : attendance.status === "excused" ? "pending" : "present"}">${esc(statusNames[attendance.status])}</span>` : "Chưa điểm danh"}</td><td>${summary.rows.length} gói · <strong>${remaining}</strong> buổi</td><td><span class="${summary.owed ? "fee-owed" : "fee-paid"}">${esc(summary.status)}</span><br><small>${Number(summary.owed).toLocaleString("vi-VN")} đ còn thiếu</small></td><td><button class="btn secondary" data-class-student="${esc(student.id)}">Mở hồ sơ</button></td></tr>`;
-      }).join("") || '<tr><td colspan="7">Lớp chưa có học sinh. Nhấn “Thêm học sinh vào lớp”.</td></tr>'}</tbody></table></div></section>
+        return `<tr><td><strong>${esc(student.name)}</strong><br><small>${esc(student.id)}</small></td><td>${esc(student.phone)}</td><td>${attendance ? `<span class="badge ${attendance.status === "absent" ? "out" : attendance.status === "excused" ? "pending" : "present"}">${esc(statusNames[attendance.status])}</span>` : "Chưa điểm danh"}</td><td>${summary.rows.length ? `${summary.rows.length} gói · <strong>${remaining}</strong> buổi còn lại` : "Chưa có gói"}</td><td><span class="${summary.owed ? "fee-owed" : "fee-paid"}">${esc(summary.status)}</span>${summary.owed ? `<br><small>Còn ${Number(summary.owed).toLocaleString("vi-VN")} đ</small>` : ""}</td><td><div class="class-row-actions"><button class="btn secondary" data-class-student="${esc(student.id)}">Hồ sơ</button><button class="btn secondary" data-transfer-student="${esc(student.id)}">Chuyển lớp</button><button class="btn danger" data-unassign-student="${esc(student.id)}">Bỏ khỏi lớp</button></div></td></tr>`;
+      }).join("") || '<tr><td colspan="6">Lớp chưa có học sinh. Nhấn “Thêm học sinh vào lớp”.</td></tr>'}</tbody></table></div></section>
       <section class="card profile-wide-card"><h2>Lịch tập sắp tới</h2><div class="class-upcoming-list">${upcoming.slice(0, 8).map((lesson) => `<article><strong>${esc(lesson.date)} · ${esc(lesson.start)}–${esc(lesson.end)}</strong><span>${esc(lesson.court)} · HLV ${esc(lesson.coach)}</span></article>`).join("") || "<p>Chưa có lịch tập sắp tới.</p>"}</div></section>
     </div>`;
     document.getElementById("class-detail-back").onclick = () => history.back();
@@ -1542,6 +1547,25 @@ async function classDetail(className, recordHistory = true) {
         studentProfile(element.dataset.classStudent);
       };
       element.onkeydown = (event) => event.key === "Enter" && studentProfile(element.dataset.classStudent);
+    });
+    document.querySelectorAll("[data-transfer-student]").forEach((button) => {
+      button.onclick = () => studentForm(button.dataset.transferStudent);
+    });
+    document.querySelectorAll("[data-unassign-student]").forEach((button) => {
+      button.onclick = async () => {
+        const student = students.find((row) => row.id === button.dataset.unassignStudent);
+        if (!confirm(`Bỏ ${student.name} khỏi lớp ${className}? Hồ sơ, học phí và lịch sử vẫn được giữ.`)) return;
+        button.disabled = true;
+        try {
+          await api.unassignStudent(student.id);
+          data = await api.dashboard();
+          await classDetail(className, false);
+          toast(`Đã bỏ ${student.name} khỏi lớp ${className}.`);
+        } catch (error) {
+          toast(error.message);
+          button.disabled = false;
+        }
+      };
     });
   } catch (error) {
     app.innerHTML = `<div class="empty-state"><p class="error-text">${esc(error.message)}</p><button class="btn" id="class-detail-retry">Quay lại</button></div>`;
