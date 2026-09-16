@@ -17,6 +17,7 @@ const tables = [
   "guardians",
   "enrollments",
   "payments",
+  "expenses",
   "session_attendance",
   "leave_requests",
   "report_deliveries",
@@ -36,12 +37,14 @@ export class BackupController {
           p.mime_type,p.file_name,p.uploaded_at,u.username AS uploaded_by
           FROM lesson_photos p JOIN users u ON u.id=p.uploaded_by`)
       ).rows;
-      return { version: 4, exportedAt: new Date().toISOString(), data };
+      return { version: 5, exportedAt: new Date().toISOString(), data };
     }, false);
   }
   @Post("restore") restore(@Body() body: any, @Req() req: any) {
+    const legacyV4 = body?.version === 4 && body?.data && !Object.hasOwn(body.data, "expenses");
+    if (legacyV4) body.data.expenses = [];
     if (
-      body?.version !== 4 ||
+      ![4, 5].includes(body?.version) ||
       !body.data ||
       Object.keys(body.data).length !== tables.length + 1 ||
       !tables.every(
@@ -90,6 +93,7 @@ export class BackupController {
       for (const table of [
         "enrollments",
         "payments",
+        "expenses",
         "leave_requests",
         "report_deliveries",
       ])

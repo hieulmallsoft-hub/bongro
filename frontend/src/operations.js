@@ -169,6 +169,7 @@ export async function operationsScreen(
         ? [
             ["recurring", "Lịch lặp hằng tuần"],
             ["fees", "Học phí"],
+            ["finance", "Thu chi / Lãi lỗ"],
             ["guardians", "Phụ huynh"],
             ["leaves", "Nghỉ / học bù"],
             ["users", "Tài khoản HLV"],
@@ -319,6 +320,33 @@ export async function operationsScreen(
             `${esc(names[e.status] || e.status)}<br><button class="btn secondary" data-edit-package="${e.id}">Sửa gói</button> <button class="btn secondary" data-package-status="${e.id}">Đổi trạng thái</button>`,
           ]),
         );
+    if (tab === "finance") {
+      const incomeRows = (data.payments || []).filter(
+        (payment) => !payment.voided_at && String(payment.paid_at).slice(0, 7) === month,
+      );
+      const expenseRows = (data.expenses || []).filter((expense) => !expense.voided_at);
+      const revenue = incomeRows.reduce((sum, payment) => sum + Number(payment.amount), 0);
+      const costs = expenseRows.reduce((sum, expense) => sum + Number(expense.amount), 0);
+      const profit = revenue - costs;
+      const margin = revenue ? Math.round((profit / revenue) * 1000) / 10 : 0;
+      const categoryNames = {
+        court: "Sân bãi",
+        coach: "Lương HLV",
+        equipment: "Dụng cụ",
+        utilities: "Điện nước",
+        marketing: "Quảng cáo",
+        other: "Chi phí khác",
+      };
+      const categoryTotals = Object.keys(categoryNames).map((category) => ({
+        category,
+        amount: expenseRows.filter((row) => row.category === category).reduce((sum, row) => sum + Number(row.amount), 0),
+      })).filter((row) => row.amount > 0);
+      content = `<section class="finance-header"><div><span class="ops-kicker">BÁO CÁO DÒNG TIỀN</span><h2>Thu chi tháng ${esc(month)}</h2><p>Tính theo tiền học phí thực thu và chi phí thực trả trong tháng.</p></div><label>Chọn tháng<input class="field" id="finance-month" type="month" value="${esc(month)}"></label></section>
+        <div class="ops-metrics finance-metrics"><article><span>Doanh thu thực thu</span><strong class="fee-paid">${money(revenue)}</strong><small>${incomeRows.length} khoản thu</small></article><article><span>Tổng chi phí</span><strong class="fee-owed">${money(costs)}</strong><small>${expenseRows.length} khoản chi</small></article><article><span>${profit >= 0 ? "Lợi nhuận" : "Lỗ"}</span><strong class="${profit >= 0 ? "fee-paid" : "fee-owed"}">${money(Math.abs(profit))}</strong><small>Thu trừ chi</small></article><article><span>Tỷ suất lợi nhuận</span><strong>${margin}%</strong><small>Trên doanh thu thực thu</small></article></div>
+        <div class="finance-grid">${form("expense", "Ghi nhận khoản chi", select("category", "Nhóm chi phí", Object.entries(categoryNames)) + input("title", "Nội dung chi") + input("amount", "Số tiền (đồng)", "number") + input("expenseDate", "Ngày chi", "date", today()) + input("note", "Ghi chú / số chứng từ", "text", "", false), "Lưu khoản chi")}<section class="card finance-breakdown"><h3>Cơ cấu chi phí</h3>${categoryTotals.map((row) => `<div class="finance-category"><span>${esc(categoryNames[row.category])}</span><strong>${money(row.amount)}</strong><i style="width:${costs ? Math.round(row.amount / costs * 100) : 0}%"></i></div>`).join("") || "<p>Chưa có chi phí trong tháng.</p>"}</section></div>
+        <section class="card finance-ledger"><h3>Sổ thu học phí</h3>${table(["Ngày thu", "Học sinh / gói", "Số tiền", "Ghi chú"], incomeRows.map((row) => [esc(new Date(row.paid_at).toLocaleDateString("vi-VN")), esc(studentName(row.student_id) + " · " + row.title), `<strong class="fee-paid">+ ${money(row.amount)}</strong>`, esc(row.note || "—")]))}</section>
+        <section class="card finance-ledger"><h3>Sổ chi phí</h3>${table(["Ngày chi", "Nhóm", "Nội dung", "Số tiền", "Người nhập", "Xử lý"], (data.expenses || []).map((row) => [esc(String(row.expense_date).slice(0, 10)), esc(categoryNames[row.category] || row.category), `${esc(row.title)}<br><small>${esc(row.voided_at ? `Đã hủy: ${row.void_reason}` : row.note || "")}</small>`, row.voided_at ? `<s>${money(row.amount)}</s>` : `<strong class="fee-owed">- ${money(row.amount)}</strong>`, esc(row.created_by_name), row.voided_at ? "Đã hủy" : `<button class="btn secondary" data-void-expense="${row.id}">Hủy khoản chi</button>`]))}</section>`;
+    }
     if (tab === "guardians")
       content =
         form(
@@ -528,6 +556,7 @@ export async function operationsScreen(
     bind("enroll", "/ops/enrollments");
     bind("edit-enrollment", "/ops/enrollments/update");
     bind("payment", "/ops/payments");
+    bind("expense", "/ops/expenses");
     if (tab === "fees") bindFees(data, today());
     bind("guardian", "/ops/guardians");
     bind("leave", "/ops/leaves");
@@ -641,6 +670,15 @@ export async function operationsScreen(
       const status = prompt("Nhập trạng thái: active, completed, frozen hoặc cancelled", enrollment.status);
       if (!status || status === enrollment.status) return;
       return action("/ops/enrollments/status", { id: enrollment.id, status });
+    });
+    const financeMonth = document.getElementById("finance-month");
+    if (financeMonth)
+      financeMonth.onchange = (event) =>
+        operationsScreen(user, onBack, "finance", event.target.value || month);
+    buttons("[data-void-expense]", (button) => {
+      const reason = prompt("Lý do hủy khoản chi (bắt buộc):");
+      if (!reason?.trim()) return;
+      return action("/ops/expenses/void", { id: Number(button.dataset.voidExpense), reason: reason.trim() });
     });
     buttons("[data-edit-package]", (b) => {
       const enrollment = data.enrollments.find((e) => e.id === Number(b.dataset.editPackage));

@@ -64,7 +64,7 @@ export async function migrate(client: PoolClient, schema: string) {
         )
       ).rows[0]?.value || 0,
     );
-    if (version > 5)
+    if (version > 6)
       throw new Error("Database schema is newer than this application.");
     if (version === 0) {
       await client.query(schemaV1);
@@ -113,6 +113,23 @@ export async function migrate(client: PoolClient, schema: string) {
         ADD COLUMN void_reason TEXT,
         ADD COLUMN voided_by INTEGER REFERENCES users(id)`);
       await client.query("UPDATE metadata SET value='5' WHERE key='schema_version'");
+    }
+    if (version < 6) {
+      await client.query(`CREATE TABLE expenses (
+        id SERIAL PRIMARY KEY,
+        category TEXT NOT NULL CHECK(category IN ('court','coach','equipment','utilities','marketing','other')),
+        title TEXT NOT NULL CHECK(length(trim(title)) BETWEEN 1 AND 120),
+        amount INTEGER NOT NULL CHECK(amount>0),
+        expense_date DATE NOT NULL,
+        note TEXT NOT NULL DEFAULT '',
+        created_by INTEGER NOT NULL REFERENCES users(id),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        voided_at TIMESTAMPTZ,
+        void_reason TEXT,
+        voided_by INTEGER REFERENCES users(id)
+      )`);
+      await client.query("CREATE INDEX idx_expenses_date ON expenses(expense_date)");
+      await client.query("UPDATE metadata SET value='6' WHERE key='schema_version'");
     }
     await client.query("COMMIT");
   } catch (error) {

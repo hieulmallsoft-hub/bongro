@@ -99,6 +99,16 @@ export class OperationsController {
                 )
               ).rows
             : [],
+        expenses:
+          u.role === "admin"
+            ? (
+                await c.query(
+                  `SELECT e.*,u.name AS created_by_name FROM expenses e JOIN users u ON u.id=e.created_by
+                   WHERE to_char(e.expense_date,'YYYY-MM')=$1 ORDER BY e.expense_date DESC,e.id DESC`,
+                  [month],
+                )
+              ).rows
+            : [],
         guardians:
           u.role === "admin"
             ? (await c.query("SELECT * FROM guardians")).rows
@@ -472,6 +482,36 @@ export class OperationsController {
       );
       if (!result.rowCount) throw new BadRequestException("Giao dịch không tồn tại hoặc đã được hủy.");
       await audit(c, req.user, "void_payment", { id, reason });
+      return { success: true };
+    });
+  }
+  @Post("expenses") expense(@Req() req: any, @Body() b: any) {
+    admin(req.user);
+    const allowed = ["court", "coach", "equipment", "utilities", "marketing", "other"];
+    if (!allowed.includes(b.category))
+      throw new BadRequestException("Nhóm chi phí không hợp lệ.");
+    const title = text(b.title, 120), amount = number(b.amount), expenseDate = date(b.expenseDate);
+    const note = typeof b.note === "string" ? b.note.trim().slice(0, 500) : "";
+    return this.storage.withTransaction(async (c) => {
+      const result = await c.query(
+        "INSERT INTO expenses(category,title,amount,expense_date,note,created_by) VALUES($1,$2,$3,$4,$5,$6) RETURNING id",
+        [b.category, title, amount, expenseDate, note, req.user.id],
+      );
+      await audit(c, req.user, "create_expense", { id: result.rows[0].id, category: b.category, title, amount, expenseDate });
+      return { success: true, id: result.rows[0].id };
+    });
+  }
+  @Post("expenses/void") voidExpense(@Req() req: any, @Body() b: any) {
+    admin(req.user);
+    const id = number(b.id), reason = text(b.reason, 500);
+    return this.storage.withTransaction(async (c) => {
+      const result = await c.query(
+        "UPDATE expenses SET voided_at=now(),void_reason=$1,voided_by=$2 WHERE id=$3 AND voided_at IS NULL",
+        [reason, req.user.id, id],
+      );
+      if (!result.rowCount)
+        throw new BadRequestException("Khoản chi không tồn tại hoặc đã được hủy.");
+      await audit(c, req.user, "void_expense", { id, reason });
       return { success: true };
     });
   }

@@ -70,6 +70,13 @@ test("operations: auth, scoped coaches, fees, leave, reports and complete backup
           403,
           coach,
         );
+        await call(
+          "/ops/expenses",
+          "POST",
+          { category: "court", title: "Tiền sân", amount: 100000, expenseDate: dateKey() },
+          403,
+          coach,
+        );
         const scoped = await call(
           "/ops/overview",
           "GET",
@@ -367,12 +374,44 @@ test("operations: auth, scoped coaches, fees, leave, reports and complete backup
         assert.equal((await call(path)).report.status, "draft");
       },
     );
+    await t.test("monthly expenses and voiding preserve the accounting trail", async () => {
+      await call(
+        "/ops/expenses",
+        "POST",
+        {
+          category: "court",
+          title: "Thuê sân tháng",
+          amount: 3000000,
+          expenseDate: dateKey(),
+          note: "Sân 1 và sân 2",
+        },
+        201,
+      );
+      let overview = await call("/ops/overview?month=" + dateKey().slice(0, 7));
+      assert.equal(overview.expenses[0].amount, 3000000);
+      assert.equal(overview.expenses[0].category, "court");
+      await call(
+        "/ops/expenses/void",
+        "POST",
+        { id: overview.expenses[0].id, reason: "Nhập nhầm tháng" },
+        201,
+      );
+      overview = await call("/ops/overview?month=" + dateKey().slice(0, 7));
+      assert.ok(overview.expenses[0].voided_at);
+      await call(
+        "/ops/expenses/void",
+        "POST",
+        { id: overview.expenses[0].id, reason: "Hủy lần hai" },
+        400,
+      );
+    });
     await t.test(
       "full backup restores report and fees, invalid payload rolls back",
       async () => {
         const backup = await call("/ops/backup");
         assert.equal(backup.data.monthly_reports.length, 1);
         assert.equal(backup.data.payments.length, 1);
+        assert.equal(backup.data.expenses.length, 1);
         await call("/ops/backup/restore", "POST", backup, 201);
         const invalid = structuredClone(backup);
         invalid.data.students[0].unexpected = 1;
