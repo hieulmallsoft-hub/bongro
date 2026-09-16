@@ -1118,11 +1118,28 @@ function modal(title, body, onSubmit) {
   d.showModal();
 }
 
-function studentForm(id) {
-  let s = data.students.find((st) => st.id === id);
+async function studentForm(id) {
+  const s = data.students.find((st) => st.id === id);
+  let ops;
+  try {
+    ops = await request("/ops/overview");
+  } catch (error) {
+    toast(error.message);
+    return;
+  }
+  const guardian = (ops.guardians || []).find((g) => g.student_id === id) || {};
+  const classes = [...new Set([
+    ...ops.lessons.map((lesson) => lesson.name),
+    ...ops.students.map((student) => student.group),
+  ])].filter(Boolean).sort();
+  if (!classes.length) {
+    toast("Chưa có lớp. Hãy tạo lịch tập cho lớp trước khi thêm học sinh.");
+    return;
+  }
   modal(
-    s ? "Chỉnh sửa thông tin học sinh" : "Thêm học sinh mới",
+    s ? "Sửa toàn bộ hồ sơ học sinh" : "Thêm học sinh vào lớp",
     `
+      <p class="profile-form-note">Thông tin học sinh, lớp và phụ huynh được lưu cùng lúc.</p>
       <div class="form-grid">
         <label>
           Họ và tên học sinh
@@ -1133,14 +1150,24 @@ function studentForm(id) {
           <input class="input-field" type="date" name="dob" value="${esc(s?.dob || "")}" max="${dateKey()}" required>
         </label>
         <label>
-          Lớp học / Nhóm tuổi
-          <input class="input-field" name="group" value="${esc(s?.group || "")}" list="groups" placeholder="Ví dụ: U12 Cơ bản, U15 Pro..." required maxlength="60">
-          <datalist id="groups">${[...new Set([...data.students.map((st) => st.group), ...data.lessons.map((lesson) => lesson.name)])].sort().map((g) => `<option value="${esc(g)}">`).join("")}</datalist>
+          Thêm vào lớp
+          <select class="input-field" name="group" required>
+            <option value="">Chọn lớp học…</option>
+            ${classes.map((name) => `<option value="${esc(name)}" ${s?.group === name ? "selected" : ""}>${esc(name)}</option>`).join("")}
+          </select>
         </label>
         <label>
-          Số điện thoại liên hệ phụ huynh
+          Số điện thoại liên hệ chính
           <input class="input-field" type="tel" name="phone" value="${esc(s?.phone || "")}" placeholder="0912 345 678" pattern="[+0-9 .()-]{9,20}" required>
         </label>
+      </div>
+      <h3 class="profile-form-heading">Thông tin phụ huynh và người đón</h3>
+      <div class="form-grid">
+        <label>Họ tên phụ huynh<input class="input-field" name="guardianName" value="${esc(guardian.name || "")}" maxlength="80" placeholder="Nguyễn Văn A"></label>
+        <label>Số điện thoại phụ huynh<input class="input-field" type="tel" name="guardianPhone" value="${esc(guardian.phone || "")}" pattern="[+0-9 .()-]{9,20}" placeholder="0912 345 678"></label>
+        <label>Email phụ huynh<input class="input-field" type="email" name="guardianEmail" value="${esc(guardian.email || "")}" maxlength="120" placeholder="phuhuynh@example.com"></label>
+        <label>Mối quan hệ<input class="input-field" name="relationship" value="${esc(guardian.relationship || "")}" maxlength="80" placeholder="Bố, mẹ, người giám hộ…"></label>
+        <label class="profile-form-wide">Người được phép đón<input class="input-field" name="authorizedPickup" value="${esc(guardian.authorized_pickup || "")}" maxlength="500" placeholder="Ghi rõ họ tên và quan hệ; có thể nhập nhiều người"></label>
       </div>
       ${
         s
@@ -1166,10 +1193,16 @@ function studentForm(id) {
       }
       values.name = values.name.trim();
       values.group = values.group.trim();
-      await api.saveStudent(s?.id, values);
+      if (s) values.id = s.id;
+      const saved = await api.saveStudentProfile(values);
       d.close();
-      await refresh();
-      toast("Đã cập nhật thông tin học sinh.");
+      data = await api.dashboard();
+      if (s) await studentProfile(saved.id, dateKey().slice(0, 7), false);
+      else {
+        page = "students";
+        render();
+      }
+      toast(s ? "Đã cập nhật đầy đủ hồ sơ học sinh." : `Đã thêm ${saved.name} vào lớp ${saved.group}.`);
     },
   );
   if (s) {

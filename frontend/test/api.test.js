@@ -25,6 +25,19 @@ test('student deletion uses the protected delete endpoint', async () => {
   assert.deepEqual(await api.deleteStudent('HS001'), { success: true });
 });
 
+test('complete student profile is saved atomically', async () => {
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, '/api/students/profile');
+    assert.equal(options.method, 'POST');
+    assert.equal(JSON.parse(options.body).guardianName, 'Phụ huynh');
+    return new Response(JSON.stringify({ id: 'HS001' }), { status: 201 });
+  };
+  assert.deepEqual(
+    await api.saveStudentProfile({ id: 'HS001', guardianName: 'Phụ huynh' }),
+    { id: 'HS001' },
+  );
+});
+
 test('check-in sends only the student ID; server owns the attendance time', async () => {
   globalThis.fetch = async (url, options) => {
     assert.equal(url, '/api/attendance/check-in');

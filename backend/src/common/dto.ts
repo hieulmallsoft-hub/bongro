@@ -11,6 +11,7 @@ import {
   Min,
   ValidateIf,
   ValidateNested,
+  IsOptional,
 } from "class-validator";
 
 const Trim = () =>
@@ -24,6 +25,14 @@ export class StudentDto {
 }
 export class StudentRecordDto extends StudentDto {
   @Matches(/^HS\d{3,10}$/) id: string;
+}
+export class StudentProfileDto extends StudentDto {
+  @IsOptional() @Matches(/^HS\d{3,10}$/) id?: string;
+  @Trim() @IsString() @IsOptional() @MaxLength(80) guardianName?: string;
+  @Trim() @IsString() @IsOptional() @MaxLength(30) guardianPhone?: string;
+  @Trim() @IsString() @IsOptional() @MaxLength(120) guardianEmail?: string;
+  @Trim() @IsString() @IsOptional() @MaxLength(80) relationship?: string;
+  @Trim() @IsString() @IsOptional() @MaxLength(500) authorizedPickup?: string;
 }
 export class LessonDto {
   @Trim() @IsString() @IsNotEmpty() @MaxLength(60) name: string;

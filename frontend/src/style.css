@@ -1775,6 +1775,9 @@ dialog h2 {
   font-weight: 800;
   color: var(--text-title);
 }
+.profile-form-note { margin: 0 0 16px; padding: 11px 13px; border-radius: 10px; color: #475569; background: #f1f5f9; }
+.profile-form-heading { margin: 22px 0 12px; padding-top: 18px; border-top: 1px solid var(--border-mid); }
+.form-grid .profile-form-wide { grid-column: 1 / -1; }
 
 .form-grid input,
 .form-grid select {

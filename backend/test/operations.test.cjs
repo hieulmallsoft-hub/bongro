@@ -88,6 +88,35 @@ test("operations: auth, scoped coaches, fees, leave, reports and complete backup
       },
     );
     await t.test("per-session attendance, fees and guardian data", async () => {
+      const profile = await call(
+        "/students/profile",
+        "POST",
+        {
+          id: "HS004",
+          name: "Phạm Tuấn Anh",
+          dob: "2014-09-18",
+          group: "U12 Cơ bản",
+          phone: "0934567890",
+          guardianName: "Phụ huynh hồ sơ",
+          guardianPhone: "0901234567",
+          guardianEmail: "profile@example.com",
+          relationship: "Mẹ",
+          authorizedPickup: "Nguyễn Văn A",
+        },
+        201,
+      );
+      assert.equal(profile.group, "U12 Cơ bản");
+      await call(
+        "/students/profile",
+        "POST",
+        {
+          name: "Không có lớp",
+          dob: "2014-09-18",
+          group: "Lớp chưa tồn tại",
+          phone: "0934567890",
+        },
+        400,
+      );
       await call(
         "/ops/attendance",
         "POST",
@@ -183,7 +212,7 @@ test("operations: auth, scoped coaches, fees, leave, reports and complete backup
       );
       overview = await call("/ops/overview");
       assert.equal(overview.enrollments[0].paid, 500000);
-      assert.equal(overview.guardians[0].name, "Phụ huynh");
+      assert.equal(overview.guardians.find((g) => g.student_id === "HS004").name, "Phụ huynh");
       await call(
         "/ops/enrollments/update",
         "POST",
