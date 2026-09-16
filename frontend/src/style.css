@@ -2255,6 +2255,14 @@ footer {
 .profile-payment small { display: block; color: var(--text-muted); margin-top: 3px; }
 .profile-section-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 14px; }
 .profile-section-head h2 { margin: 0; }
+.class-card-link { cursor: pointer; }
+.class-card-link:focus { outline: 3px solid rgba(255,85,0,.35); outline-offset: 3px; }
+.class-detail-page { position: relative; z-index: 1; max-width: 1320px; margin: 0 auto; padding: 28px 28px 90px; }
+.class-detail-metrics { grid-template-columns: repeat(4,1fr); }
+.class-upcoming-list { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+.class-upcoming-list article { display: flex; flex-direction: column; gap: 5px; padding: 15px; border: 1px solid var(--border-mid); border-radius: 13px; background: #f8fafc; }
+.class-upcoming-list article span { color: var(--text-muted); font-size: 12px; }
+@media (max-width: 760px) { .class-detail-page { padding: 16px 12px 80px; } .class-detail-metrics,.class-upcoming-list { grid-template-columns: 1fr; } }
 .student-row-link { cursor: pointer; }
 .student-row-link:hover { background: #fff7f1; }
 .student-row-link:focus { outline: 2px solid var(--orange-primary); outline-offset: -2px; }

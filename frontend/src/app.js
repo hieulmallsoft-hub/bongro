@@ -959,7 +959,7 @@ function pageContent() {
                   (l) => l.name === g && l.date >= dateKey(),
                 ).length;
                 return `
-              <div class="class-card">
+              <div class="class-card class-card-link" data-class-detail="${esc(g)}" tabindex="0" role="button" aria-label="Xem chi tiết lớp ${esc(g)}">
                 <div class="class-card-header">
                   <h3>🏀 ${esc(g)}</h3>
                   <span class="badge court-tag">${count} Học sinh</span>
@@ -971,8 +971,8 @@ function pageContent() {
                 <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
                   Chương trình rèn luyện thể lực, chiến thuật và kỹ năng phối hợp đồng đội.
                 </p>
-                <button class="btn secondary" style="width: 100%;" data-page="schedule">
-                  Xem lịch lớp này →
+                <button class="btn secondary" style="width: 100%;" data-class-detail="${esc(g)}">
+                  Xem chi tiết học sinh →
                 </button>
               </div>
             `;
@@ -1118,7 +1118,7 @@ function modal(title, body, onSubmit) {
   d.showModal();
 }
 
-async function studentForm(id) {
+async function studentForm(id, defaultClass = "") {
   const s = data.students.find((st) => st.id === id);
   let ops;
   try {
@@ -1153,7 +1153,7 @@ async function studentForm(id) {
           Thêm vào lớp
           <select class="input-field" name="group" required>
             <option value="">Chọn lớp học…</option>
-            ${classes.map((name) => `<option value="${esc(name)}" ${s?.group === name ? "selected" : ""}>${esc(name)}</option>`).join("")}
+            ${classes.map((name) => `<option value="${esc(name)}" ${(s?.group || defaultClass) === name ? "selected" : ""}>${esc(name)}</option>`).join("")}
           </select>
         </label>
         <label>
@@ -1198,6 +1198,7 @@ async function studentForm(id) {
       d.close();
       data = await api.dashboard();
       if (s) await studentProfile(saved.id, dateKey().slice(0, 7), false);
+      else if (defaultClass) await classDetail(saved.group, false);
       else {
         page = "students";
         render();
@@ -1318,6 +1319,18 @@ function bind() {
   );
 
   bindStudents();
+  document.querySelectorAll("[data-class-detail]").forEach((element) => {
+    element.onclick = (event) => {
+      event.stopPropagation();
+      classDetail(element.dataset.classDetail);
+    };
+    element.onkeydown = (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        classDetail(element.dataset.classDetail);
+      }
+    };
+  });
 
   // Quick suggestion chips
   document.querySelectorAll("[data-quickcode]").forEach((btn) => {
@@ -1472,6 +1485,68 @@ function bindStudents() {
         if (event.key === "Enter") studentProfile(element.dataset.studentProfile);
       };
     });
+}
+
+async function classDetail(className, recordHistory = true) {
+  if (recordHistory)
+    history.pushState(
+      { view: "class", className },
+      "",
+      `#class/${encodeURIComponent(className)}`,
+    );
+  const app = document.getElementById("app");
+  app.innerHTML = '<div class="empty-state">Đang tải chi tiết lớp…</div>';
+  try {
+    const ops = await request("/ops/overview");
+    const students = ops.students.filter((student) => student.group === className);
+    const lessons = ops.lessons
+      .filter((lesson) => lesson.name === className)
+      .sort((a, b) => `${a.date} ${a.start}`.localeCompare(`${b.date} ${b.start}`));
+    const latestLesson = [...lessons].reverse().find((lesson) => lesson.date <= dateKey());
+    const upcoming = lessons.filter((lesson) => lesson.date >= dateKey());
+    const attendanceFor = (studentId) =>
+      latestLesson
+        ? ops.attendance.find(
+            (row) => row.student_id === studentId && row.lesson_id === latestLesson.id,
+          )
+        : null;
+    const statusNames = {
+      present: "Có mặt",
+      late: "Đi muộn",
+      excused: "Nghỉ phép",
+      absent: "Vắng",
+    };
+    const paidCount = students.filter((student) => {
+      const summary = feeSummary(student, ops.enrollments || [], dateKey());
+      return summary.rows.length && summary.owed === 0;
+    }).length;
+    app.innerHTML = `<div class="class-detail-page">
+      <div class="student-profile-top"><button class="btn secondary" id="class-detail-back">← Danh sách lớp</button><button class="btn" id="class-add-student">+ Thêm học sinh vào lớp</button></div>
+      <section class="student-profile-hero class-detail-hero"><div class="student-profile-avatar">🏀</div><div><span class="ops-kicker">CHI TIẾT LỚP HỌC</span><h1>${esc(className)}</h1><p>${students.length} học sinh · ${upcoming.length} buổi sắp tới</p></div></section>
+      <div class="student-profile-metrics class-detail-metrics"><article><span>Sĩ số</span><strong>${students.length}</strong></article><article><span>Đã đóng đủ học phí</span><strong>${paidCount}</strong></article><article><span>Còn công nợ / chưa có gói</span><strong>${students.length - paidCount}</strong></article><article><span>Buổi tập sắp tới</span><strong>${upcoming.length}</strong></article></div>
+      <section class="card profile-wide-card"><div class="profile-section-head"><div><h2>Danh sách học sinh</h2><p>${latestLesson ? `Điểm danh gần nhất: ${esc(latestLesson.date)} · ${esc(latestLesson.start)}` : "Lớp chưa có buổi tập đã diễn ra."}</p></div></div><div class="table-responsive"><table><thead><tr><th>Học sinh</th><th>Mã học viên</th><th>Liên hệ</th><th>Điểm danh gần nhất</th><th>Gói / buổi còn lại</th><th>Học phí</th><th></th></tr></thead><tbody>${students.map((student) => {
+        const attendance = attendanceFor(student.id);
+        const summary = feeSummary(student, ops.enrollments || [], dateKey());
+        const remaining = summary.rows.reduce((sum, row) => sum + Math.max(0, Number(row.sessions) - Number(row.used)), 0);
+        return `<tr class="student-row-link" data-class-student="${esc(student.id)}" tabindex="0"><td><strong>${esc(student.name)}</strong></td><td>${esc(student.id)}</td><td>${esc(student.phone)}</td><td>${attendance ? `<span class="badge ${attendance.status === "absent" ? "out" : attendance.status === "excused" ? "pending" : "present"}">${esc(statusNames[attendance.status])}</span>` : "Chưa điểm danh"}</td><td>${summary.rows.length} gói · <strong>${remaining}</strong> buổi</td><td><span class="${summary.owed ? "fee-owed" : "fee-paid"}">${esc(summary.status)}</span><br><small>${Number(summary.owed).toLocaleString("vi-VN")} đ còn thiếu</small></td><td><button class="btn secondary" data-class-student="${esc(student.id)}">Mở hồ sơ</button></td></tr>`;
+      }).join("") || '<tr><td colspan="7">Lớp chưa có học sinh. Nhấn “Thêm học sinh vào lớp”.</td></tr>'}</tbody></table></div></section>
+      <section class="card profile-wide-card"><h2>Lịch tập sắp tới</h2><div class="class-upcoming-list">${upcoming.slice(0, 8).map((lesson) => `<article><strong>${esc(lesson.date)} · ${esc(lesson.start)}–${esc(lesson.end)}</strong><span>${esc(lesson.court)} · HLV ${esc(lesson.coach)}</span></article>`).join("") || "<p>Chưa có lịch tập sắp tới.</p>"}</div></section>
+    </div>`;
+    document.getElementById("class-detail-back").onclick = () => history.back();
+    document.getElementById("class-add-student").onclick = async () => {
+      await studentForm(undefined, className);
+    };
+    document.querySelectorAll("[data-class-student]").forEach((element) => {
+      element.onclick = (event) => {
+        event.stopPropagation();
+        studentProfile(element.dataset.classStudent);
+      };
+      element.onkeydown = (event) => event.key === "Enter" && studentProfile(element.dataset.classStudent);
+    });
+  } catch (error) {
+    app.innerHTML = `<div class="empty-state"><p class="error-text">${esc(error.message)}</p><button class="btn" id="class-detail-retry">Quay lại</button></div>`;
+    document.getElementById("class-detail-retry").onclick = () => history.back();
+  }
 }
 
 async function studentProfile(
@@ -1646,6 +1721,10 @@ window.addEventListener("popstate", (event) => {
   const state = event.state || { view: "dashboard", page: "home" };
   if (state.view === "student") {
     studentProfile(state.id, state.month, false);
+    return;
+  }
+  if (state.view === "class") {
+    classDetail(state.className, false);
     return;
   }
   if (state.view === "operations") {
