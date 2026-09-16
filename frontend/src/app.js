@@ -330,6 +330,14 @@ function stat(
 }
 
 function render() {
+  const accountName = signedInUser?.name || "Tài khoản HoopStars";
+  const accountInitials = accountName
+    .trim()
+    .split(/\s+/)
+    .slice(-2)
+    .map((part) => part[0]?.toUpperCase() || "")
+    .join("");
+  const accountRole = signedInUser?.role === "admin" ? "Quản trị viên" : "Huấn luyện viên";
   const present = new Set(
     data.attendance.filter((a) => a.date === dateKey()).map((a) => a.studentId),
   ).size;
@@ -407,10 +415,10 @@ function render() {
           </button>
 
           <div class="profile-widget">
-            <div class="avatar">VM</div>
+            <div class="avatar">${esc(accountInitials)}</div>
             <div class="profile-info">
-              <strong>Nguyễn Văn Minh</strong>
-              <small>Huấn luyện viên trưởng</small>
+              <strong>${esc(accountName)}</strong>
+              <small>${esc(accountRole)}</small>
             </div>
           </div>
         </div>
@@ -1250,7 +1258,7 @@ function lessonForm() {
         </label>
         <label>
           Huấn luyện viên phụ trách
-          <input class="input-field" name="coach" value="HLV Nguyễn Văn Minh" required maxlength="80">
+          <input class="input-field" name="coach" value="${esc(signedInUser?.role === "coach" ? signedInUser.name : "")}" placeholder="Ví dụ: HLV Lê Minh Hiếu" required maxlength="80">
         </label>
       </div>
     `,
