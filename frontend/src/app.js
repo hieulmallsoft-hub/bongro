@@ -81,6 +81,17 @@ const esc = (s) =>
 const dateKey = () =>
   new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" });
 
+const bindMoneyInputs = (root = document) => {
+  root.querySelectorAll("[data-money]").forEach((input) => {
+    const format = () => {
+      const digits = input.value.replace(/\D/g, "").replace(/^0+(?=\d)/, "");
+      input.value = digits ? Number(digits).toLocaleString("vi-VN") : "";
+    };
+    input.addEventListener("input", format);
+    format();
+  });
+};
+
 /* ==========================================================================
    STATE & AUDIO SYNTHESIZER
    ========================================================================== */
@@ -1102,6 +1113,7 @@ function modal(title, body, onSubmit) {
     </form>
   `;
   d.querySelector("#cancel").onclick = () => d.close();
+  bindMoneyInputs(d);
   let pending = false;
   d.oncancel = (e) => {
     if (pending) e.preventDefault();
@@ -1110,6 +1122,9 @@ function modal(title, body, onSubmit) {
     e.preventDefault();
     if (!onSubmit || pending) return;
     const fields = new FormData(e.target);
+    e.target.querySelectorAll("[data-money]").forEach((input) =>
+      fields.set(input.name, input.value.replace(/\D/g, "") || "0"),
+    );
     pending = true;
     d.querySelectorAll("button").forEach((b) => (b.disabled = true));
     d.querySelector("#form-error").textContent = "";
@@ -1671,8 +1686,8 @@ async function studentProfile(
       `<div class="form-grid">
         <label>Tên gói<input class="input-field" name="title" value="Gói 10 buổi" required maxlength="100"></label>
         <label>Số buổi<select class="input-field" name="sessions" required><option value="10">10 buổi · nghỉ phép 2</option><option value="20">20 buổi · nghỉ phép 4</option><option value="30">30 buổi · nghỉ phép 6</option></select></label>
-        <label>Tổng học phí phải đóng<input class="input-field" type="number" name="fee" min="0" required></label>
-        <label>Đã đóng ban đầu<input class="input-field" type="number" name="initialPaid" min="0" value="0" required></label>
+        <label>Tổng học phí phải đóng<div class="money-field"><input class="input-field" type="text" inputmode="numeric" data-money name="fee" placeholder="Ví dụ: 1.500.000" required><span>đ</span></div></label>
+        <label>Đã đóng ban đầu<div class="money-field"><input class="input-field" type="text" inputmode="numeric" data-money name="initialPaid" value="0" placeholder="0" required><span>đ</span></div></label>
         <label>Ngày bắt đầu<input class="input-field" type="date" name="starts" value="${dateKey()}" required></label>
         <label>Ngày kết thúc gói<input class="input-field" type="date" name="ends" required></label>
         <label>Hạn đóng tiền<input class="input-field" type="date" name="due" value="${dateKey()}" required></label>
@@ -1691,7 +1706,7 @@ async function studentProfile(
         const owed = Number(enrollment.fee) - Number(enrollment.paid);
         modal(
           `Thu học phí · ${student.name}`,
-          `<p><strong>${esc(enrollment.title)}</strong><br>Còn thiếu: <span class="fee-owed">${owed.toLocaleString("vi-VN")} đ</span></p><div class="form-grid"><label>Số tiền đóng lần này<input class="input-field" type="number" name="amount" min="1" max="${owed}" value="${owed}" required></label><label>Ghi chú<input class="input-field" name="note" maxlength="500" placeholder="Tiền mặt, chuyển khoản…"></label></div>`,
+          `<p><strong>${esc(enrollment.title)}</strong><br>Còn thiếu: <span class="fee-owed">${owed.toLocaleString("vi-VN")} đ</span></p><div class="form-grid"><label>Số tiền đóng lần này<div class="money-field"><input class="input-field" type="text" inputmode="numeric" data-money name="amount" value="${owed}" required><span>đ</span></div></label><label>Ghi chú<input class="input-field" name="note" maxlength="500" placeholder="Tiền mặt, chuyển khoản…"></label></div>`,
           async (formData, dialog) => {
             const values = Object.fromEntries(formData);
             await request("/ops/payments", { method: "POST", body: { enrollmentId: enrollment.id, ...values } });

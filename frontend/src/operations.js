@@ -34,6 +34,18 @@ const flashMessage = (message, type = "success") => {
 };
 const input = (name, label, type = "text", value = "", required = true) =>
   `<label>${label}<input class="field" name="${name}" type="${type}" value="${esc(value)}" ${required ? "required" : ""}></label>`;
+const moneyInput = (name, label, value = "", required = true) =>
+  `<label>${label}<div class="money-field"><input class="field" name="${name}" type="text" inputmode="numeric" data-money value="${esc(value)}" placeholder="Ví dụ: 1.500.000" ${required ? "required" : ""}><span>đ</span></div></label>`;
+const bindMoneyInputs = (root = document) => {
+  root.querySelectorAll("[data-money]").forEach((input) => {
+    const format = () => {
+      const digits = input.value.replace(/\D/g, "").replace(/^0+(?=\d)/, "");
+      input.value = digits ? Number(digits).toLocaleString("vi-VN") : "";
+    };
+    input.addEventListener("input", format);
+    format();
+  });
+};
 const select = (name, label, items) =>
   `<label>${label}<select class="field" name="${name}" required><option value="">Chọn…</option>${items.map(([id, text]) => `<option value="${esc(id)}">${esc(text)}</option>`).join("")}</select></label>`;
 const form = (id, title, fields, button = "Lưu") =>
@@ -266,7 +278,7 @@ export async function operationsScreen(
           select("studentId", "Học sinh", studentOpts) +
             input("title", "Tên gói") +
             select("sessions", "Gói số buổi", [[10, "10 buổi · nghỉ phép tối đa 2"], [20, "20 buổi · nghỉ phép tối đa 4"], [30, "30 buổi · nghỉ phép tối đa 6"]]) +
-            input("fee", "Học phí (đồng)", "number") +
+            moneyInput("fee", "Học phí phải đóng") +
             input("starts", "Ngày bắt đầu", "date", today()) +
             input("ends", "Hạn gói", "date") +
             input("due", "Hạn đóng tiền", "date"),
@@ -286,7 +298,7 @@ export async function operationsScreen(
                 money(e.fee - e.paid),
             ]),
           ) +
-            input("amount", "Số tiền thu", "number") +
+            moneyInput("amount", "Số tiền thu") +
             input("note", "Ghi chú", "text", "", false),
         ) +
         form(
@@ -295,7 +307,7 @@ export async function operationsScreen(
           `<input type="hidden" name="id">` +
             input("title", "Tên gói") +
             select("sessions", "Gói số buổi", [[10, "10 buổi · nghỉ phép tối đa 2"], [20, "20 buổi · nghỉ phép tối đa 4"], [30, "30 buổi · nghỉ phép tối đa 6"]]) +
-            input("fee", "Học phí phải đóng (đồng)", "number") +
+            moneyInput("fee", "Học phí phải đóng") +
             input("starts", "Ngày bắt đầu", "date") +
             input("ends", "Hạn gói", "date") +
             input("due", "Hạn đóng tiền", "date"),
@@ -343,7 +355,7 @@ export async function operationsScreen(
       })).filter((row) => row.amount > 0);
       content = `<section class="finance-header"><div><span class="ops-kicker">BÁO CÁO DÒNG TIỀN</span><h2>Thu chi tháng ${esc(month)}</h2><p>Tính theo tiền học phí thực thu và chi phí thực trả trong tháng.</p></div><label>Chọn tháng<input class="field" id="finance-month" type="month" value="${esc(month)}"></label></section>
         <div class="ops-metrics finance-metrics"><article><span>Doanh thu thực thu</span><strong class="fee-paid">${money(revenue)}</strong><small>${incomeRows.length} khoản thu</small></article><article><span>Tổng chi phí</span><strong class="fee-owed">${money(costs)}</strong><small>${expenseRows.length} khoản chi</small></article><article><span>${profit >= 0 ? "Lợi nhuận" : "Lỗ"}</span><strong class="${profit >= 0 ? "fee-paid" : "fee-owed"}">${money(Math.abs(profit))}</strong><small>Thu trừ chi</small></article><article><span>Tỷ suất lợi nhuận</span><strong>${margin}%</strong><small>Trên doanh thu thực thu</small></article></div>
-        <div class="finance-grid">${form("expense", "Ghi nhận khoản chi", select("category", "Nhóm chi phí", Object.entries(categoryNames)) + input("title", "Nội dung chi") + input("amount", "Số tiền (đồng)", "number") + input("expenseDate", "Ngày chi", "date", today()) + input("note", "Ghi chú / số chứng từ", "text", "", false), "Lưu khoản chi")}<section class="card finance-breakdown"><h3>Cơ cấu chi phí</h3>${categoryTotals.map((row) => `<div class="finance-category"><span>${esc(categoryNames[row.category])}</span><strong>${money(row.amount)}</strong><i style="width:${costs ? Math.round(row.amount / costs * 100) : 0}%"></i></div>`).join("") || "<p>Chưa có chi phí trong tháng.</p>"}</section></div>
+        <div class="finance-grid">${form("expense", "Ghi nhận khoản chi", select("category", "Nhóm chi phí", Object.entries(categoryNames)) + input("title", "Nội dung chi") + moneyInput("amount", "Số tiền chi") + input("expenseDate", "Ngày chi", "date", today()) + input("note", "Ghi chú / số chứng từ", "text", "", false), "Lưu khoản chi")}<section class="card finance-breakdown"><h3>Cơ cấu chi phí</h3>${categoryTotals.map((row) => `<div class="finance-category"><span>${esc(categoryNames[row.category])}</span><strong>${money(row.amount)}</strong><i style="width:${costs ? Math.round(row.amount / costs * 100) : 0}%"></i></div>`).join("") || "<p>Chưa có chi phí trong tháng.</p>"}</section></div>
         <section class="card finance-ledger"><h3>Sổ thu học phí</h3>${table(["Ngày thu", "Học sinh / gói", "Số tiền", "Ghi chú"], incomeRows.map((row) => [esc(new Date(row.paid_at).toLocaleDateString("vi-VN")), esc(studentName(row.student_id) + " · " + row.title), `<strong class="fee-paid">+ ${money(row.amount)}</strong>`, esc(row.note || "—")]))}</section>
         <section class="card finance-ledger"><h3>Sổ chi phí</h3>${table(["Ngày chi", "Nhóm", "Nội dung", "Số tiền", "Người nhập", "Xử lý"], (data.expenses || []).map((row) => [esc(String(row.expense_date).slice(0, 10)), esc(categoryNames[row.category] || row.category), `${esc(row.title)}<br><small>${esc(row.voided_at ? `Đã hủy: ${row.void_reason}` : row.note || "")}</small>`, row.voided_at ? `<s>${money(row.amount)}</s>` : `<strong class="fee-owed">- ${money(row.amount)}</strong>`, esc(row.created_by_name), row.voided_at ? "Đã hủy" : `<button class="btn secondary" data-void-expense="${row.id}">Hủy khoản chi</button>`]))}</section>`;
     }
@@ -484,6 +496,7 @@ export async function operationsScreen(
     const pendingFlash = operationsFlash;
     operationsFlash = null;
     app.innerHTML = `<div class="ops-page">${pendingFlash ? `<div class="ops-toast ${pendingFlash.type}" role="status"><span>${pendingFlash.type === "success" ? "✓" : "!"}</span><div><strong>${pendingFlash.type === "success" ? "Đã cập nhật" : "Không thể cập nhật"}</strong><p>${esc(pendingFlash.message)}</p></div><button type="button" aria-label="Đóng">×</button></div>` : ""}<header class="ops-header"><div><span class="ops-kicker">HOOPSTARS CONTROL CENTER</span><h1>Quản lý học viện</h1><p>Xin chào, <strong>${esc(user.name)}</strong> · ${admin ? "Quản trị viên" : "Huấn luyện viên"}</p></div>${admin ? '<button class="btn secondary" id="back-dashboard">← Về tổng quan</button>' : ""}</header><nav class="ops-tabs">${tabs.map(([id, title]) => `<button class="ops-tab ${tab === id ? "active" : ""}" data-ops-tab="${id}">${title}</button>`).join("")}</nav><main class="ops-content">${content}<p id="ops-message" role="status"></p></main></div>`;
+    bindMoneyInputs(app);
     const toast = document.querySelector(".ops-toast");
     if (toast) {
       toast.querySelector("button").onclick = () => toast.remove();
@@ -513,7 +526,11 @@ export async function operationsScreen(
           const b = f.querySelector("button");
           b.disabled = true;
           try {
-            await action(path, map(Object.fromEntries(new FormData(f))));
+            const values = Object.fromEntries(new FormData(f));
+            f.querySelectorAll("[data-money]").forEach((input) =>
+              values[input.name] = input.value.replace(/\D/g, "") || "0",
+            );
+            await action(path, map(values));
           } catch (error) {
             f.querySelector(".form-message").textContent = error.message;
           } finally {
@@ -686,6 +703,7 @@ export async function operationsScreen(
       document.getElementById("edit-enrollment-card").hidden = false;
       for (const name of ["id", "title", "sessions", "fee", "starts", "ends", "due"])
         editForm.elements[name].value = enrollment[name];
+      editForm.elements.fee.dispatchEvent(new Event("input"));
       editForm.scrollIntoView({ behavior: "smooth", block: "center" });
       editForm.elements.title.focus();
     });

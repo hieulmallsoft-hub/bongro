@@ -1778,6 +1778,9 @@ dialog h2 {
 .profile-form-note { margin: 0 0 16px; padding: 11px 13px; border-radius: 10px; color: #475569; background: #f1f5f9; }
 .profile-form-heading { margin: 22px 0 12px; padding-top: 18px; border-top: 1px solid var(--border-mid); }
 .form-grid .profile-form-wide { grid-column: 1 / -1; }
+.money-field { position: relative; display: flex; align-items: center; }
+.money-field input { width: 100%; padding-right: 42px !important; font-weight: 800; letter-spacing: .2px; }
+.money-field > span { position: absolute; right: 14px; color: var(--text-muted); font-weight: 800; pointer-events: none; }
 
 .form-grid input,
 .form-grid select {

@@ -116,6 +116,7 @@ export function bindFees(data, today) {
           paymentSelect.value = e.id;
           document.querySelector("#payment [name=amount]").value =
             e.fee - e.paid;
+          document.querySelector("#payment [name=amount]").dispatchEvent(new Event("input"));
           document
             .getElementById("payment")
             .scrollIntoView({ behavior: "smooth", block: "center" });
