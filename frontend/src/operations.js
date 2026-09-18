@@ -229,6 +229,7 @@ export async function operationsScreen(
             <button class="btn">📷 Tải ảnh lên</button><p class="form-message" role="status"></p>
           </form></div>
         </section>` +
+        (admin ? `<section class="card attendance-backfill-card"><div class="ops-section-head"><div><span class="ops-kicker">DÀNH CHO ADMIN</span><h2>Điểm danh bổ sung / sửa nhiều buổi</h2><p>Chọn học sinh rồi tích các buổi đã học trước đây. Lưu lại sẽ cập nhật thống kê gói học.</p></div></div><form id="attendance-backfill"><div class="form-grid">${select("studentId", "Học sinh", studentOpts)}${select("status", "Trạng thái", [["present","Có mặt"],["late","Đi muộn"],["excused","Nghỉ phép"],["absent","Vắng"]])}${input("note", "Ghi chú điều chỉnh", "text", "Điểm danh bổ sung bởi admin", false)}</div><div id="backfill-lessons" class="backfill-lessons"><p>Chọn học sinh để xem các buổi có thể cập nhật.</p></div><button class="btn" type="submit">Lưu điểm danh các buổi đã chọn</button><p class="form-message" role="status"></p></form></section>` : "") +
         form(
           "mark",
           "Điểm danh theo buổi",
@@ -539,6 +540,48 @@ export async function operationsScreen(
         };
     };
     bind("mark", "/ops/attendance");
+    const backfillForm = document.getElementById("attendance-backfill");
+    if (backfillForm) {
+      const studentSelect = backfillForm.elements.studentId;
+      const lessonList = document.getElementById("backfill-lessons");
+      const renderBackfillLessons = () => {
+        const student = data.students.find((row) => row.id === studentSelect.value);
+        if (!student) {
+          lessonList.innerHTML = "<p>Chọn học sinh để xem các buổi có thể cập nhật.</p>";
+          return;
+        }
+        const eligible = data.lessons
+          .filter((lesson) => lesson.name === student.group && lesson.date <= today())
+          .sort((a, b) => `${b.date} ${b.start}`.localeCompare(`${a.date} ${a.start}`));
+        lessonList.innerHTML = eligible.map((lesson) => {
+          const attendance = data.attendance.find((row) => row.student_id === student.id && row.lesson_id === lesson.id);
+          return `<label class="backfill-option"><input type="checkbox" name="lessonIds" value="${lesson.id}"><span><strong>${esc(lesson.date)} · ${esc(lesson.start)}–${esc(lesson.end)}</strong><small>${esc(lesson.name)} · ${esc(lesson.court)} · ${attendance ? `Hiện tại: ${names[attendance.status]}` : "Chưa điểm danh"}</small></span></label>`;
+        }).join("") || "<p>Học sinh chưa có buổi tập nào đã diễn ra trong lớp hiện tại.</p>";
+      };
+      studentSelect.onchange = renderBackfillLessons;
+      backfillForm.onsubmit = async (event) => {
+        event.preventDefault();
+        const lessonIds = [...backfillForm.querySelectorAll('[name="lessonIds"]:checked')].map((input) => Number(input.value));
+        const message = backfillForm.querySelector(".form-message");
+        if (!lessonIds.length) {
+          message.textContent = "Hãy chọn ít nhất một buổi tập.";
+          return;
+        }
+        const button = backfillForm.querySelector("button[type=submit]");
+        button.disabled = true;
+        try {
+          await action("/ops/attendance/backfill", {
+            studentId: studentSelect.value,
+            lessonIds,
+            status: backfillForm.elements.status.value,
+            note: backfillForm.elements.note.value,
+          }, `Đã cập nhật điểm danh bổ sung cho ${lessonIds.length} buổi.`);
+        } catch (error) {
+          message.textContent = error.message;
+          button.disabled = false;
+        }
+      };
+    }
     bind("reset-password", "/auth/reset-password");
     bind("recurring", "/lessons/recurring", (v) => ({
       ...v,

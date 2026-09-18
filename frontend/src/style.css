@@ -2202,6 +2202,12 @@ footer {
 .attendance-summary article { padding: 13px 14px; border: 1px solid #e4eaf2; border-radius: 12px; background: #f8fafc; }
 .attendance-summary span { display: block; min-height: 30px; color: var(--text-muted); font-size: 10px; font-weight: 800; text-transform: uppercase; }
 .attendance-summary strong { display: block; color: #17263a; font-size: 22px; }
+.attendance-backfill-card { padding: 22px; margin: 18px 0; }
+.backfill-lessons { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; max-height: 330px; margin: 16px 0; padding: 12px; overflow-y: auto; border: 1px solid var(--border-mid); border-radius: 14px; background: #f8fafc; }
+.backfill-option { display: flex; align-items: flex-start; gap: 10px; padding: 12px; border: 1px solid var(--border-mid); border-radius: 11px; background: #fff; cursor: pointer; }
+.backfill-option input { margin-top: 3px; width: 17px; height: 17px; accent-color: var(--orange-primary); }
+.backfill-option span,.backfill-option small { display: block; }
+.backfill-option small { margin-top: 4px; color: var(--text-muted); }
 
 .ops-photo-panel { margin-top: 22px; padding: 20px; border-radius: 15px; background: linear-gradient(135deg,#111c2d,#1d3049); color: #fff; display: grid; grid-template-columns: minmax(0,1fr) minmax(280px,420px); gap: 22px; align-items: center; }
 .ops-photo-panel img { width: 100%; object-fit: cover; border: 1px solid rgba(255,255,255,.15); }
@@ -2316,5 +2322,5 @@ footer {
   .profile-month { margin-left: 0; }
   .student-profile-metrics { grid-template-columns: repeat(2,1fr); }
   .profile-card dl { grid-template-columns: 1fr; gap: 4px; }
-  .attendance-summary { grid-template-columns: repeat(2,1fr); }
+  .attendance-summary,.backfill-lessons { grid-template-columns: 1fr; }
 }

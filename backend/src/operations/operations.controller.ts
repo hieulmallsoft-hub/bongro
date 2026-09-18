@@ -359,6 +359,65 @@ export class OperationsController {
       return { success: true };
     });
   }
+  @Post("attendance/backfill") async backfillAttendance(@Req() req: any, @Body() b: any) {
+    admin(req.user);
+    const studentId = text(b.studentId, 20);
+    if (!Array.isArray(b.lessonIds) || !b.lessonIds.length || b.lessonIds.length > 100)
+      throw new BadRequestException("Hãy chọn từ 1 đến 100 buổi cần điểm danh bổ sung.");
+    const lessonIds = [...new Set(b.lessonIds.map((id: unknown) => number(id)))];
+    if (!['present', 'late', 'excused', 'absent'].includes(b.status))
+      throw new BadRequestException("Trạng thái điểm danh không hợp lệ.");
+    const note = typeof b.note === "string" ? b.note.trim().slice(0, 1000) : "";
+    return this.storage.withTransaction(async (c) => {
+      const student = (
+        await c.query("SELECT name,class_name FROM students WHERE id=$1", [studentId])
+      ).rows[0];
+      if (!student) throw new NotFoundException("Không tìm thấy học sinh.");
+      const lessons = (
+        await c.query(
+          `SELECT id,name,to_char(date,'YYYY-MM-DD') AS day FROM lessons
+           WHERE id=ANY($1::int[]) ORDER BY date,start_time`,
+          [lessonIds],
+        )
+      ).rows;
+      if (lessons.length !== lessonIds.length)
+        throw new BadRequestException("Có buổi tập không tồn tại.");
+      for (const lesson of lessons) {
+        if (lesson.day > dateKey())
+          throw new BadRequestException("Không thể điểm danh bổ sung cho buổi trong tương lai.");
+        const makeup = (
+          await c.query(
+            "SELECT 1 FROM leave_requests WHERE student_id=$1 AND makeup_lesson_id=$2 AND status='approved'",
+            [studentId, lesson.id],
+          )
+        ).rowCount;
+        if (student.class_name !== lesson.name && !makeup)
+          throw new BadRequestException(`Học sinh không thuộc lớp của buổi #${lesson.id}.`);
+      }
+      const before = (
+        await c.query(
+          "SELECT * FROM session_attendance WHERE student_id=$1 AND lesson_id=ANY($2::int[])",
+          [studentId, lessonIds],
+        )
+      ).rows;
+      for (const lessonId of lessonIds)
+        await c.query(
+          `INSERT INTO session_attendance(student_id,lesson_id,status,check_in,note)
+           VALUES($1,$2,$3,CASE WHEN $3 IN ('present','late') THEN now() ELSE NULL END,$4)
+           ON CONFLICT(student_id,lesson_id) DO UPDATE SET status=excluded.status,note=excluded.note,
+           check_in=CASE WHEN excluded.status IN ('present','late') THEN COALESCE(session_attendance.check_in,now()) ELSE NULL END,
+           check_out=CASE WHEN excluded.status IN ('present','late') THEN session_attendance.check_out ELSE NULL END`,
+          [studentId, lessonId, b.status, note],
+        );
+      await audit(c, req.user, "backfill_attendance", {
+        studentId,
+        lessonIds,
+        status: b.status,
+        before,
+      });
+      return { success: true, updated: lessonIds.length };
+    });
+  }
   @Post("guardians") guardian(@Req() req: any, @Body() b: any) {
     admin(req.user);
     const studentId = text(b.studentId, 20),

@@ -134,6 +134,19 @@ test("operations: auth, scoped coaches, fees, leave, reports and complete backup
         400,
         coach,
       );
+      const extraLesson = await call(
+        "/lessons",
+        "POST",
+        {
+          name: "U12 Cơ bản",
+          date: dateKey(),
+          start: "08:00",
+          end: "09:00",
+          court: "Sân bổ sung",
+          coach: "HLV bổ sung",
+        },
+        201,
+      );
       await call(
         "/ops/lesson-photo",
         "POST",
@@ -175,6 +188,23 @@ test("operations: auth, scoped coaches, fees, leave, reports and complete backup
         coach,
       );
       await call(
+        "/ops/attendance/backfill",
+        "POST",
+        {
+          studentId: "HS004",
+          lessonIds: [1, extraLesson.id],
+          status: "present",
+          note: "Bổ sung hai buổi đã học",
+        },
+        201,
+      );
+      await call(
+        "/ops/attendance/backfill",
+        "POST",
+        { studentId: "HS004", lessonIds: [], status: "present" },
+        400,
+      );
+      await call(
         "/ops/enrollments",
         "POST",
         {
@@ -205,8 +235,8 @@ test("operations: auth, scoped coaches, fees, leave, reports and complete backup
       );
       let overview = await call("/ops/overview");
       const enrollment = overview.enrollments[0];
-      assert.equal(enrollment.used, 1);
-      assert.equal(enrollment.attended, 1);
+      assert.equal(enrollment.used, 2);
+      assert.equal(enrollment.attended, 2);
       assert.equal(enrollment.excused, 0);
       assert.equal(enrollment.absent, 0);
       assert.equal(enrollment.excused_allowance, 2);
